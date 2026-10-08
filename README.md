@@ -66,13 +66,22 @@ and speaker state. Run in an exclusive plain-DOS foreground session.
 actual C judgment core, generic MML validation and original golden outputs.
 GitHub CI covers these host checks, not DOS hardware, listening or desktop input.
 Native release qualification is recorded in `QUALIFICATION.json` and evidence.
+For native reproduction, provide your own toolchain at DOS C:, mount the source
+package at D: and a fresh scratch directory at E:. Copy `tests/BAD.RBG` to that
+scratch directory and create its `evidence` subdirectory. From D: run
+`tests\NATIVE.BAT` in an exclusive Tandy DOS session. It rebuilds and runs the
+recorded diagnostics, writes output only into the package/scratch directories,
+then exits. Coordinate emulator ownership yourself; no shared PC lock or local
+host path is bundled. Screenshot dumps are diagnostics, not hardware timing.
 
 V4 visuals and v5 startup/fallback have source-matched MSC6/DOSBox checks for
 audio/score equivalence, misses, calm, retry, input spam and cleanup. A previous
 build was reported playable on the physical Tandy; that does not qualify v5.
 DOSBox cycle settings are not calibrated 4.77 MHz performance measurements.
-The final original-demo release combination is awaiting its allocated native
-qualification window. No public binary release is ready until that passes.
+The final original-demo combination passed its allocated native qualification:
+exact rebuild, full hit/miss traces, calm, retry, spam, exit and plain-title
+cleanup. Native game/title captures are in `evidence/NATIVE`. This remains an
+experimental release; physical v5 acceptance and human timing feel are pending.
 
 Game/converter: GPL version 3, `LICENSE` and `NOTICE.TXT`. Original music has a
 separate permissive grant in `music/LICENSE.TXT`. Keep source/notices with forks.

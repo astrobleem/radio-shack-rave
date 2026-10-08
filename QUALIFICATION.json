@@ -1,9 +1,45 @@
 {
-  "status": "HOST_CHECKS_PENDING_NATIVE_SLOT_REQUIRED",
-  "native_original_demo": false,
-  "v5_prior_emulator": true,
-  "previous_physical_user_report": "earlier build only; not exact v5 acceptance",
+  "status": "PASS",
+  "engine": "latest v5 exact rebuild",
+  "runtime_sha256": "ea437b599bda7a1ffb33a569b9cc18a0ffb708b2e4c5de18dbfb793230ac2366",
+  "original_score_sha256": "113a4e5ebc29ab46821b93e6405656927778814b3f19cbe5fa478032f5fda8d7",
+  "native_lease": {
+    "released_utc": "2026-10-08T20:18:56.1574561Z",
+    "acquired_utc": "2026-10-08T20:15:22.7806184Z"
+  },
+  "original_seconds": 32,
+  "total_lead_onsets": 128,
+  "required_taps": 64,
+  "automatic_lead_onsets": 64,
+  "host_unittest_methods": 12,
+  "host_actual_core": true,
+  "native_live_trace_identity": {
+    "HIT": true,
+    "CALM": true,
+    "RETRY": true
+  },
+  "native_miss_trace_identity": true,
+  "native_backing_identity": true,
+  "native_cases": [
+    "MSC6 exact rebuild",
+    "core early/late/reset/repeat/catch-up",
+    "invalid score rejected",
+    "original all-hit",
+    "original all-miss",
+    "calm",
+    "retry",
+    "input spam",
+    "active-tone Escape",
+    "plain title fallback",
+    "startup Space skip",
+    "startup Escape",
+    "startup calm toggle"
+  ],
+  "native_environment": "DOSBox-X Tandy / 8086_prefetch / fixed12000cycles; not physical clock calibration",
   "physical_v5": false,
-  "ci_scope": "host converter, golden score and actual C judgment core; no DOS hardware claim",
-  "memory_paragraph_rounded_max": 90416
+  "previous_physical_acceptance": "User reported an earlier Rave build worked on physical Tandy; this does not qualify v5",
+  "public_branding": "Tested plain title fallback; supplied logo pixels and bitmap assets omitted",
+  "memory_paragraph_rounded_max_bytes": 90416,
+  "PSP_environment_excluded": true,
+  "ci_scope": "Host converter/golden score and actual C judgment core, not DOS hardware or listening"
 }

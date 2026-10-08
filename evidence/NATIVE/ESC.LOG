@@ -1,0 +1,11 @@
+mode=7 reason=1 restore_video=1 restore_keyboard=1
+score=728 hits=7 misses=0 best=7 ghosts=0 restart=0
+lead_attacks=14 lead_releases=14 audio_events=28 overflow=0 backing_checksum=2550103778
+required=64 total_lead=128 automatic=7 reference=0 auto_skipped=0
+frames=97 skipped_intervals=0 worst_draw_ticks=0 max_vram_bytes=2971
+fx_updates=8 fx_deferred=0 fx_max_writes=696 word_changes=1 word_max_writes=582 judgments=7
+fx_slow_frames=0
+worst_modulo_pit_counts=15972 input_wait_ticks=0 IRQ1=0 makes=0 breaks=0 repeats=0
+state_cursor=7/49 final_tick=55/583 music_updates=7 queue_overflow=0
+memory states=12288 chart=5120 judged=512 old_y=1024 keyboard=224; PIT0 unchanged
+cleanup_owned=0 keyboard_owned=0 video_owned=0 speaker_low=0
