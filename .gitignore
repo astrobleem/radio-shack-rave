@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.obj
+*.OBJ
+*.CNF
+tests/*.exe
+AUDIO.TXT
+RUNLOG.TXT
+COREQA.TXT
+TITLE.RAW
+FRAME.RAW

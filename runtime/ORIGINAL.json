@@ -1,0 +1,431 @@
+{
+  "audible_retention": {
+    "fraction": "1/1",
+    "retained_onsets": 128,
+    "source_onsets": 128
+  },
+  "auto_policy": "most audible attacks, then higher lower-median pitch, then lower source voice number",
+  "automatic_lead_events": 64,
+  "chart_taps": 64,
+  "collapsed_backing_intervals": [],
+  "dropped_voices": [],
+  "duration_ticks": 583,
+  "input_density": {
+    "required": 64,
+    "required_per_second": "2/1",
+    "seconds": "32/1"
+  },
+  "lane_policy": "(transposed MIDI pitch - 45) modulo 3",
+  "lead_events": 128,
+  "lead_policy": "required notes hit-owned; misses silent; uncharted notes automatically play on the elapsed clock; no source lead onsets dropped",
+  "lead_voice": 1,
+  "native_quantization": "rational half-up BIOS ticks; later backing state wins same tick",
+  "psg_voices": [
+    1,
+    2,
+    3
+  ],
+  "ranking": [
+    {
+      "attacks": 128,
+      "lower_median_pitch": 65,
+      "voice": 1
+    },
+    {
+      "attacks": 32,
+      "lower_median_pitch": 53,
+      "voice": 2
+    },
+    {
+      "attacks": 16,
+      "lower_median_pitch": 64,
+      "voice": 3
+    }
+  ],
+  "same_tick_backing_states": [],
+  "schema": "deterministic-rbg3-v3",
+  "score_sha256": "113a4e5ebc29ab46821b93e6405656927778814b3f19cbe5fa478032f5fda8d7",
+  "seconds": "32/1",
+  "settings": {
+    "difficulty": "normal",
+    "gap_ms": 280,
+    "lead": "1",
+    "lead_policy": "activity",
+    "length": 4,
+    "octave": 4,
+    "parts": [
+      1,
+      2,
+      3
+    ],
+    "tempo": 120,
+    "transpose": 0,
+    "voice_transpose": {},
+    "volume": 100
+  },
+  "source_lead_onsets": 128,
+  "source_sha256": "51fb8c9395739c4d866eb06d3db483f4d57859693462a3208b504bf297654f41",
+  "states": 49,
+  "thinned_onsets": [
+    {
+      "onset": 1,
+      "reason": "not a required input; retained automatic lead",
+      "start": "1/4"
+    },
+    {
+      "onset": 3,
+      "reason": "not a required input; retained automatic lead",
+      "start": "3/4"
+    },
+    {
+      "onset": 5,
+      "reason": "not a required input; retained automatic lead",
+      "start": "5/4"
+    },
+    {
+      "onset": 7,
+      "reason": "not a required input; retained automatic lead",
+      "start": "7/4"
+    },
+    {
+      "onset": 9,
+      "reason": "not a required input; retained automatic lead",
+      "start": "9/4"
+    },
+    {
+      "onset": 11,
+      "reason": "not a required input; retained automatic lead",
+      "start": "11/4"
+    },
+    {
+      "onset": 13,
+      "reason": "not a required input; retained automatic lead",
+      "start": "13/4"
+    },
+    {
+      "onset": 15,
+      "reason": "not a required input; retained automatic lead",
+      "start": "15/4"
+    },
+    {
+      "onset": 17,
+      "reason": "not a required input; retained automatic lead",
+      "start": "17/4"
+    },
+    {
+      "onset": 19,
+      "reason": "not a required input; retained automatic lead",
+      "start": "19/4"
+    },
+    {
+      "onset": 21,
+      "reason": "not a required input; retained automatic lead",
+      "start": "21/4"
+    },
+    {
+      "onset": 23,
+      "reason": "not a required input; retained automatic lead",
+      "start": "23/4"
+    },
+    {
+      "onset": 25,
+      "reason": "not a required input; retained automatic lead",
+      "start": "25/4"
+    },
+    {
+      "onset": 27,
+      "reason": "not a required input; retained automatic lead",
+      "start": "27/4"
+    },
+    {
+      "onset": 29,
+      "reason": "not a required input; retained automatic lead",
+      "start": "29/4"
+    },
+    {
+      "onset": 31,
+      "reason": "not a required input; retained automatic lead",
+      "start": "31/4"
+    },
+    {
+      "onset": 33,
+      "reason": "not a required input; retained automatic lead",
+      "start": "33/4"
+    },
+    {
+      "onset": 35,
+      "reason": "not a required input; retained automatic lead",
+      "start": "35/4"
+    },
+    {
+      "onset": 37,
+      "reason": "not a required input; retained automatic lead",
+      "start": "37/4"
+    },
+    {
+      "onset": 39,
+      "reason": "not a required input; retained automatic lead",
+      "start": "39/4"
+    },
+    {
+      "onset": 41,
+      "reason": "not a required input; retained automatic lead",
+      "start": "41/4"
+    },
+    {
+      "onset": 43,
+      "reason": "not a required input; retained automatic lead",
+      "start": "43/4"
+    },
+    {
+      "onset": 45,
+      "reason": "not a required input; retained automatic lead",
+      "start": "45/4"
+    },
+    {
+      "onset": 47,
+      "reason": "not a required input; retained automatic lead",
+      "start": "47/4"
+    },
+    {
+      "onset": 49,
+      "reason": "not a required input; retained automatic lead",
+      "start": "49/4"
+    },
+    {
+      "onset": 51,
+      "reason": "not a required input; retained automatic lead",
+      "start": "51/4"
+    },
+    {
+      "onset": 53,
+      "reason": "not a required input; retained automatic lead",
+      "start": "53/4"
+    },
+    {
+      "onset": 55,
+      "reason": "not a required input; retained automatic lead",
+      "start": "55/4"
+    },
+    {
+      "onset": 57,
+      "reason": "not a required input; retained automatic lead",
+      "start": "57/4"
+    },
+    {
+      "onset": 59,
+      "reason": "not a required input; retained automatic lead",
+      "start": "59/4"
+    },
+    {
+      "onset": 61,
+      "reason": "not a required input; retained automatic lead",
+      "start": "61/4"
+    },
+    {
+      "onset": 63,
+      "reason": "not a required input; retained automatic lead",
+      "start": "63/4"
+    },
+    {
+      "onset": 65,
+      "reason": "not a required input; retained automatic lead",
+      "start": "65/4"
+    },
+    {
+      "onset": 67,
+      "reason": "not a required input; retained automatic lead",
+      "start": "67/4"
+    },
+    {
+      "onset": 69,
+      "reason": "not a required input; retained automatic lead",
+      "start": "69/4"
+    },
+    {
+      "onset": 71,
+      "reason": "not a required input; retained automatic lead",
+      "start": "71/4"
+    },
+    {
+      "onset": 73,
+      "reason": "not a required input; retained automatic lead",
+      "start": "73/4"
+    },
+    {
+      "onset": 75,
+      "reason": "not a required input; retained automatic lead",
+      "start": "75/4"
+    },
+    {
+      "onset": 77,
+      "reason": "not a required input; retained automatic lead",
+      "start": "77/4"
+    },
+    {
+      "onset": 79,
+      "reason": "not a required input; retained automatic lead",
+      "start": "79/4"
+    },
+    {
+      "onset": 81,
+      "reason": "not a required input; retained automatic lead",
+      "start": "81/4"
+    },
+    {
+      "onset": 83,
+      "reason": "not a required input; retained automatic lead",
+      "start": "83/4"
+    },
+    {
+      "onset": 85,
+      "reason": "not a required input; retained automatic lead",
+      "start": "85/4"
+    },
+    {
+      "onset": 87,
+      "reason": "not a required input; retained automatic lead",
+      "start": "87/4"
+    },
+    {
+      "onset": 89,
+      "reason": "not a required input; retained automatic lead",
+      "start": "89/4"
+    },
+    {
+      "onset": 91,
+      "reason": "not a required input; retained automatic lead",
+      "start": "91/4"
+    },
+    {
+      "onset": 93,
+      "reason": "not a required input; retained automatic lead",
+      "start": "93/4"
+    },
+    {
+      "onset": 95,
+      "reason": "not a required input; retained automatic lead",
+      "start": "95/4"
+    },
+    {
+      "onset": 97,
+      "reason": "not a required input; retained automatic lead",
+      "start": "97/4"
+    },
+    {
+      "onset": 99,
+      "reason": "not a required input; retained automatic lead",
+      "start": "99/4"
+    },
+    {
+      "onset": 101,
+      "reason": "not a required input; retained automatic lead",
+      "start": "101/4"
+    },
+    {
+      "onset": 103,
+      "reason": "not a required input; retained automatic lead",
+      "start": "103/4"
+    },
+    {
+      "onset": 105,
+      "reason": "not a required input; retained automatic lead",
+      "start": "105/4"
+    },
+    {
+      "onset": 107,
+      "reason": "not a required input; retained automatic lead",
+      "start": "107/4"
+    },
+    {
+      "onset": 109,
+      "reason": "not a required input; retained automatic lead",
+      "start": "109/4"
+    },
+    {
+      "onset": 111,
+      "reason": "not a required input; retained automatic lead",
+      "start": "111/4"
+    },
+    {
+      "onset": 113,
+      "reason": "not a required input; retained automatic lead",
+      "start": "113/4"
+    },
+    {
+      "onset": 115,
+      "reason": "not a required input; retained automatic lead",
+      "start": "115/4"
+    },
+    {
+      "onset": 117,
+      "reason": "not a required input; retained automatic lead",
+      "start": "117/4"
+    },
+    {
+      "onset": 119,
+      "reason": "not a required input; retained automatic lead",
+      "start": "119/4"
+    },
+    {
+      "onset": 121,
+      "reason": "not a required input; retained automatic lead",
+      "start": "121/4"
+    },
+    {
+      "onset": 123,
+      "reason": "not a required input; retained automatic lead",
+      "start": "123/4"
+    },
+    {
+      "onset": 125,
+      "reason": "not a required input; retained automatic lead",
+      "start": "125/4"
+    },
+    {
+      "onset": 127,
+      "reason": "not a required input; retained automatic lead",
+      "start": "127/4"
+    }
+  ],
+  "transpositions": [
+    {
+      "input_range": [
+        60,
+        71
+      ],
+      "output_range": [
+        60,
+        71
+      ],
+      "semitones": 0,
+      "voice": 1
+    },
+    {
+      "input_range": [
+        48,
+        57
+      ],
+      "output_range": [
+        48,
+        57
+      ],
+      "semitones": 0,
+      "voice": 2
+    },
+    {
+      "input_range": [
+        62,
+        67
+      ],
+      "output_range": [
+        62,
+        67
+      ],
+      "semitones": 0,
+      "voice": 3
+    }
+  ],
+  "unsupported_policy": "reject with location; no automatic repair or pitch clamping",
+  "volume_quantization": "input 0..127 -> half-up 0..15 PSG level"
+}

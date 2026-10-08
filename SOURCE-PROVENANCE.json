@@ -1,0 +1,32 @@
+{
+  "converter": "RBG3 retention policy",
+  "engine": "v5 exact compiled bytes",
+  "pins": {
+    "music/LICENSE.TXT": "9374942185c4a05016fefc7bfb33d98c743c485d7582bb846d1d807aed26bb63",
+    "music/ORIGINAL.MML": "51fb8c9395739c4d866eb06d3db483f4d57859693462a3208b504bf297654f41",
+    "runtime/ORIGINAL.RBG": "113a4e5ebc29ab46821b93e6405656927778814b3f19cbe5fa478032f5fda8d7",
+    "runtime/ORIGINAL.events.json": "e9e19b2485562a280d46a1ee73cb3bb57ce10b738e88449b58cfaa52d4742232",
+    "runtime/ORIGINAL.json": "48e9fb69cb58a5c3f1a6606fd743aef37520b56d442748aeac1169bf05575ff9",
+    "runtime/PLAY.BAT": "cd30b8f7b98ef62702b6f144c7f50f3a090e30257f64935b5fb685cce84d4647",
+    "runtime/RSRAVE.EXE": "ea437b599bda7a1ffb33a569b9cc18a0ffb708b2e4c5de18dbfb793230ac2366",
+    "src/BEAT.C": "86fd74ec151f201ea088d1eb631ff1e88239dbd4f11a1087b72ef9c0a4768f29",
+    "src/CORE.H": "f9f291ebee6a3feff688cb6c0e8a7976d1d01f3076c94d3d64b309f461160ccc",
+    "src/DOSGUARD.H": "8391e26bb677643a3ade2a5cf97eb0b796ca91f21bf54f55d174d215db32aa5c",
+    "src/DOSOWNER.MD": "be4072cbe72e24d700d5364f9f80684b103512e330030477cba29c25d6254e80",
+    "src/DOSSND.C": "63b06aee31e022d453e19e9dd9af6a2443ac2c58e4833f03f75885d71d8a23ac",
+    "src/DOSSND.H": "d66756fbd46ae4317fb4e798ea34ec386db7199689b2bfa813277df3efec049b",
+    "src/FX.H": "18350a8808159b58716d1b6a2d378bbd941f6b280cc53929c929fc778190da0f",
+    "src/SPLASH.H": "86bbbd56e705a7bcf20bc6d6e04b8e63d56f76710e09bcfaaa37877fb5c85198",
+    "src/win30/DRIVER/PITCORE.H": "a842095954c2e08cf0d8003ec6df9a3a7d90f8c73641f2b813fe8cea197a1f0e",
+    "tests/edges.c": "bb3368856031249f1d06ffe931868a5c5934fae437137ceb67be09ca28109520",
+    "tests/ownership.c": "53dfc40ac69d22d47bf34b12bd9b05e8df5007951e08a555f3bfd8496d1430f9",
+    "tests/run_checks.py": "15f169932714f271ef05b045db7320148a00c9b8e1497943f748b36329e50082",
+    "tests/test_converter.py": "c7b7bcf07bf1f8280804e4d42761d273c2ac65028d7c3c918fb91db8e3f828cf",
+    "tests/test_retention.py": "b080c7f927ded9ee5729259746cff3a7cb38ffbd6978164f6e290a23a42785b1",
+    "tools/import_score.py": "33cb15f1e903a3c08f3228c98a32eeb76302f8bb59114041d547096b6da91392",
+    "tools/mml.py": "87ace7a0b063e4ae44f62738c4604e2d172350bab125383462764f82681032c2"
+  },
+  "public_branding": "plain title fallback; bitmap assets omitted",
+  "schema": "rave-public-source-v1",
+  "source_toolchain": "Microsoft C 6 /G0 /AS /O /W3; LINK /CP:4096"
+}

@@ -1,0 +1,10 @@
+src\BEAT.C
+src\SPLASH.H(13) : warning C4018: '<=' : signed/unsigned mismatch
+src\SPLASH.H(13) : warning C4018: '<=' : signed/unsigned mismatch
+src\BEAT.C(185) : warning C4018: '>' : signed/unsigned mismatch
+src\BEAT.C(185) : warning C4135: conversion between different integral types
+src\DOSSND.C
+
+Microsoft (R) Overlay Linker  Version 3.64   
+Copyright (C) Microsoft Corp 1983-1988.  All rights reserved.
+

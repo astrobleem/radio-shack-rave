@@ -1,0 +1,362 @@
+
+ Start  Stop   Length Name                   Class
+ 00000H 05471H 05472H _TEXT                  CODE
+ 05480H 05481H 00002H EMULATOR_TEXT          CODE
+ 05482H 05482H 00000H C_ETEXT                ENDCODE
+ 05490H 05490H 00000H EMULATOR_DATA          FAR_DATA
+ 05490H 054D1H 00042H NULL                   BEGDATA
+ 054D2H 0602BH 00B5AH _DATA                  DATA
+ 0602CH 0602DH 00002H XIQC                   DATA
+ 0602EH 0603BH 0000EH DBDATA                 DATA
+ 0603CH 06049H 0000EH CDATA                  DATA
+ 0604AH 0604AH 00000H XIFB                   DATA
+ 0604AH 0604AH 00000H XIF                    DATA
+ 0604AH 0604AH 00000H XIFE                   DATA
+ 0604AH 0604AH 00000H XIB                    DATA
+ 0604AH 0604AH 00000H XI                     DATA
+ 0604AH 0604AH 00000H XIE                    DATA
+ 0604AH 0604AH 00000H XPB                    DATA
+ 0604AH 0604BH 00002H XP                     DATA
+ 0604CH 0604CH 00000H XPE                    DATA
+ 0604CH 0604CH 00000H XCB                    DATA
+ 0604CH 0604CH 00000H XC                     DATA
+ 0604CH 0604CH 00000H XCE                    DATA
+ 0604CH 0604CH 00000H XCFB                   DATA
+ 0604CH 0604CH 00000H XCF                    DATA
+ 0604CH 0604CH 00000H XCFE                   DATA
+ 0604CH 0604CH 00000H CONST                  CONST
+ 0604CH 06053H 00008H HDR                    MSG
+ 06054H 06129H 000D6H MSG                    MSG
+ 0612AH 0612BH 00002H PAD                    MSG
+ 0612CH 0612CH 00001H EPAD                   MSG
+ 0612EH 0E75BH 0862EH _BSS                   BSS
+ 0E75CH 0E75CH 00000H XOB                    BSS
+ 0E75CH 0E79BH 00040H XO                     BSS
+ 0E79CH 0E79CH 00000H XOE                    BSS
+ 0E7A0H 0E99FH 00200H c_common               BSS
+ 0E9A0H 0F19FH 00800H STACK                  STACK
+
+ Origin   Group
+ 0549:0   DGROUP
+
+  Address         Publics by Name
+
+ 0549:0968       STKHQQ
+ 0000:3DCC       _atexit
+ 0000:4C44       _close
+ 0000:3644       _DosSoundAcquire
+ 0000:36C6       _DosSoundPitNote
+ 0000:3694       _DosSoundPsgByte
+ 0000:3722       _DosSoundPwmBegin
+ 0000:374A       _DosSoundPwmEnd
+ 0000:3762       _DosSoundRelease
+ 0549:0C9E       _edata
+ 0549:9510       _end
+ 0549:09B3       _environ
+ 0549:098C       _errno
+ 0000:3F80       _exit
+ 0000:3882       _fclose
+ 0000:4666       _fflush
+ 0000:3BC8       _fgetc
+ 0000:3BC0       _fgetchar
+ 0000:46D8       _flushall
+ 0000:3958       _fopen
+ 0000:396C       _fprintf
+ 0000:39A2       _fread
+ 0000:524A       _free
+ 0000:3A82       _fwrite
+ 0000:3BC8       _getc
+ 0000:3BC0       _getchar
+ 0000:3D5A       _inp
+ 0000:3C12       _int86
+ 0000:4F1A       _itoa
+ 0000:4FFE       _lseek
+ 0000:27BE       _main
+ 0000:5246       _malloc
+ 0000:3D76       _memcmp
+ 0000:4F36       _memcpy
+ 0000:3D9E       _memset
+ 0000:3DD4       _onexit
+ 0000:5092       _open
+ 0000:3D68       _outp
+ 0000:3198       _PitGate
+ 0000:31AE       _PitProgram
+ 0000:3188       _PitRead
+ 0000:3B84       _printf
+ 0000:3C90       _puts
+ 0000:4C64       _read
+ 0000:4F62       _remove
+ 0000:5078       _sopen
+ 0000:3D04       _sprintf
+ 0000:5234       _stackavail
+ 0000:4E8C       _strcat
+ 0000:3BE6       _strcmp
+ 0000:4ECC       _strcpy
+ 0000:4EFE       _strlen
+ 0000:4F62       _unlink
+ 0000:4D4E       _write
+ 0549:0966       __aaltstkovr
+ 0549:0970       __acfinfo
+ 0000:9876  Abs  __acrtmsg
+ 0000:9876  Abs  __acrtused
+ 0000:D6D6  Abs  __aDBdoswp
+ 0549:09C2       __adbgmsg
+ 0549:094A       __aexit_rtn
+ 0549:097E       __aintdiv
+ 0549:0B9A       __amblksiz
+ 0000:3848       __amsg_exit
+ 0000:386A       __aNchkstk
+ 0000:3E20       __aNlmul
+ 0000:3E52       __aNuldiv
+ 0549:0042       __anullsize
+ 0000:3E20       __aNulmul
+ 0549:0962       __aseghi
+ 0549:0964       __aseglo
+ 0549:094C       __asizds
+ 0549:0B96       __asizeC
+ 0549:0B97       __asizeD
+ 0000:3780       __astart
+ 0549:0948       __atopsp
+ 0549:9310       __bufin
+ 0000:3F8F       __cexit
+ 0549:0B86       __cfltcvt_tab
+ 0549:0B84       __cflush
+ 0549:09BA       __child
+ 0000:386A       __chkstk
+ 0000:3EB2       __cinit
+ 0000:3838       __cintDIV
+ 0000:524E       __cltoasub
+ 0000:4001       __ctermsub
+ 0000:5223       __cXENIXtoDOSmode
+ 0000:525A       __cxtoa
+ 0000:3F99       __c_exit
+ 0000:3867       __dataseg
+ 0549:0997       __doserrno
+ 0000:42DC       __dosret0
+ 0000:42F1       __dosretax
+ 0000:42E4       __dosreturn
+ 0549:0994       __dosvermajor
+ 0549:0995       __dosverminor
+ 0000:3DF8       __dos_getvect
+ 0000:3E0A       __dos_setvect
+ 0548:0000       __EmDataSeg
+ 0000:3F87       __exit
+ 0549:0982       __fac
+ 0000:4050       __FF_MSGBANNER
+ 0000:4332       __filbuf
+ 0000:53D5       __findlast
+ 0000:43C6       __flsbuf
+ 0549:0B98       __fmode
+ 0549:0BAE       __fpinit
+ 0000:4F70       __fptrap
+ 0000:44A6       __freebuf
+ 0000:3930       __fsopen
+ 0000:4627       __ftbuf
+ 0000:4FBC       __getbuf
+ 0000:4C10       __getstream
+ 0000:52F8       __growseg
+ 0000:5384       __incseg
+ 0549:09BD       __intno
+ 0549:09DA       __iob
+ 0549:0A7A       __iob2
+ 0549:0B98       __iomode
+ 0549:0B1A       __lastiob
+ 0000:42FE       __maperror
+ 0000:4F98       __myalloc
+ 0549:0999       __nfile
+ 0000:52AE       __nfree
+ 0549:094E       __nheap_desc
+ 0000:52CF       __nmalloc
+ 0000:427C       __NMSG_TEXT
+ 0000:42A7       __NMSG_WRITE
+ 0000:4F76       __nullcheck
+ 0000:44D0       __openfile
+ 0549:0997       __oserr
+ 0549:099B       __osfile
+ 0549:0994       __osmajor
+ 0549:0995       __osminor
+ 0549:0996       __osmode
+ 0549:0994       __osversion
+ 0000:473A       __output
+ 0549:09BC       __ovlflag
+ 0549:09BE       __ovlvec
+ 0549:09B5       __pgmptr
+ 0549:0992       __psp
+ 0549:0990       __pspadr
+ 0000:53F6       __searchseg
+ 0000:4070       __setargv
+ 0000:41FE       __setenvp
+ 0549:0B94       __sigintoff
+ 0549:0B92       __sigintseg
+ 0000:45B6       __stbuf
+ 0549:098E       __umaskval
+ 0549:0BA4       ___aDBexit
+ 0549:0BAA       ___aDBptrchk
+ 0549:0BA2       ___aDBrterr
+ 0549:0BA0       ___aDBswpchk
+ 0549:0B9E       ___aDBswpflg
+ 0549:09AF       ___argc
+ 0549:09B1       ___argv
+ 0549:0B9C       ___qczrinit
+
+  Address         Publics by Value
+
+ 0000:27BE       _main
+ 0000:3188       _PitRead
+ 0000:3198       _PitGate
+ 0000:31AE       _PitProgram
+ 0000:3644       _DosSoundAcquire
+ 0000:3694       _DosSoundPsgByte
+ 0000:36C6       _DosSoundPitNote
+ 0000:3722       _DosSoundPwmBegin
+ 0000:374A       _DosSoundPwmEnd
+ 0000:3762       _DosSoundRelease
+ 0000:3780       __astart
+ 0000:3838       __cintDIV
+ 0000:3848       __amsg_exit
+ 0000:3867       __dataseg
+ 0000:386A       __aNchkstk
+ 0000:386A       __chkstk
+ 0000:3882       _fclose
+ 0000:3930       __fsopen
+ 0000:3958       _fopen
+ 0000:396C       _fprintf
+ 0000:39A2       _fread
+ 0000:3A82       _fwrite
+ 0000:3B84       _printf
+ 0000:3BC0       _getchar
+ 0000:3BC0       _fgetchar
+ 0000:3BC8       _getc
+ 0000:3BC8       _fgetc
+ 0000:3BE6       _strcmp
+ 0000:3C12       _int86
+ 0000:3C90       _puts
+ 0000:3D04       _sprintf
+ 0000:3D5A       _inp
+ 0000:3D68       _outp
+ 0000:3D76       _memcmp
+ 0000:3D9E       _memset
+ 0000:3DCC       _atexit
+ 0000:3DD4       _onexit
+ 0000:3DF8       __dos_getvect
+ 0000:3E0A       __dos_setvect
+ 0000:3E20       __aNlmul
+ 0000:3E20       __aNulmul
+ 0000:3E52       __aNuldiv
+ 0000:3EB2       __cinit
+ 0000:3F80       _exit
+ 0000:3F87       __exit
+ 0000:3F8F       __cexit
+ 0000:3F99       __c_exit
+ 0000:4001       __ctermsub
+ 0000:4050       __FF_MSGBANNER
+ 0000:4070       __setargv
+ 0000:41FE       __setenvp
+ 0000:427C       __NMSG_TEXT
+ 0000:42A7       __NMSG_WRITE
+ 0000:42DC       __dosret0
+ 0000:42E4       __dosreturn
+ 0000:42F1       __dosretax
+ 0000:42FE       __maperror
+ 0000:4332       __filbuf
+ 0000:43C6       __flsbuf
+ 0000:44A6       __freebuf
+ 0000:44D0       __openfile
+ 0000:45B6       __stbuf
+ 0000:4627       __ftbuf
+ 0000:4666       _fflush
+ 0000:46D8       _flushall
+ 0000:473A       __output
+ 0000:4C10       __getstream
+ 0000:4C44       _close
+ 0000:4C64       _read
+ 0000:4D4E       _write
+ 0000:4E8C       _strcat
+ 0000:4ECC       _strcpy
+ 0000:4EFE       _strlen
+ 0000:4F1A       _itoa
+ 0000:4F36       _memcpy
+ 0000:4F62       _remove
+ 0000:4F62       _unlink
+ 0000:4F70       __fptrap
+ 0000:4F76       __nullcheck
+ 0000:4F98       __myalloc
+ 0000:4FBC       __getbuf
+ 0000:4FFE       _lseek
+ 0000:5078       _sopen
+ 0000:5092       _open
+ 0000:5223       __cXENIXtoDOSmode
+ 0000:5234       _stackavail
+ 0000:5246       _malloc
+ 0000:524A       _free
+ 0000:524E       __cltoasub
+ 0000:525A       __cxtoa
+ 0000:52AE       __nfree
+ 0000:52CF       __nmalloc
+ 0000:52F8       __growseg
+ 0000:5384       __incseg
+ 0000:53D5       __findlast
+ 0000:53F6       __searchseg
+ 0548:0000       __EmDataSeg
+ 0549:0042       __anullsize
+ 0549:0948       __atopsp
+ 0549:094A       __aexit_rtn
+ 0549:094C       __asizds
+ 0549:094E       __nheap_desc
+ 0549:0962       __aseghi
+ 0549:0964       __aseglo
+ 0549:0966       __aaltstkovr
+ 0549:0968       STKHQQ
+ 0549:0970       __acfinfo
+ 0549:097E       __aintdiv
+ 0549:0982       __fac
+ 0549:098C       _errno
+ 0549:098E       __umaskval
+ 0549:0990       __pspadr
+ 0549:0992       __psp
+ 0549:0994       __osmajor
+ 0549:0994       __osversion
+ 0549:0994       __dosvermajor
+ 0549:0995       __dosverminor
+ 0549:0995       __osminor
+ 0549:0996       __osmode
+ 0549:0997       __doserrno
+ 0549:0997       __oserr
+ 0549:0999       __nfile
+ 0549:099B       __osfile
+ 0549:09AF       ___argc
+ 0549:09B1       ___argv
+ 0549:09B3       _environ
+ 0549:09B5       __pgmptr
+ 0549:09BA       __child
+ 0549:09BC       __ovlflag
+ 0549:09BD       __intno
+ 0549:09BE       __ovlvec
+ 0549:09C2       __adbgmsg
+ 0549:09DA       __iob
+ 0549:0A7A       __iob2
+ 0549:0B1A       __lastiob
+ 0549:0B84       __cflush
+ 0549:0B86       __cfltcvt_tab
+ 0549:0B92       __sigintseg
+ 0549:0B94       __sigintoff
+ 0549:0B96       __asizeC
+ 0549:0B97       __asizeD
+ 0549:0B98       __iomode
+ 0549:0B98       __fmode
+ 0549:0B9A       __amblksiz
+ 0549:0B9C       ___qczrinit
+ 0549:0B9E       ___aDBswpflg
+ 0549:0BA0       ___aDBswpchk
+ 0549:0BA2       ___aDBrterr
+ 0549:0BA4       ___aDBexit
+ 0549:0BAA       ___aDBptrchk
+ 0549:0BAE       __fpinit
+ 0549:0C9E       _edata
+ 0000:9876  Abs  __acrtmsg
+ 0000:9876  Abs  __acrtused
+ 0000:D6D6  Abs  __aDBdoswp
+ 0549:9310       __bufin
+ 0549:9510       _end
+
+Program entry point at 0000:3780

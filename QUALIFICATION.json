@@ -1,0 +1,9 @@
+{
+  "status": "HOST_CHECKS_PENDING_NATIVE_SLOT_REQUIRED",
+  "native_original_demo": false,
+  "v5_prior_emulator": true,
+  "previous_physical_user_report": "earlier build only; not exact v5 acceptance",
+  "physical_v5": false,
+  "ci_scope": "host converter, golden score and actual C judgment core; no DOS hardware claim",
+  "memory_paragraph_rounded_max": 90416
+}
