@@ -26,8 +26,13 @@ class Converter(unittest.TestCase):
     with self.assertRaises(ScoreError):convert(text)
  def test_original_golden_outputs(self):
   root=Path(__file__).resolve().parents[1]
-  result=convert((root/'music/ORIGINAL.MML').read_text(),lead='1',parts=[1,2,3],difficulty='normal')
+  result=convert((root/'music/ORIGINAL.MML').read_text(),lead='1',parts=[1,2,3],difficulty='normal',title='CIRCUIT AFTER HOURS')
   for data,name in zip(result,['ORIGINAL.RBG','ORIGINAL.json','ORIGINAL.events.json']):self.assertEqual(data,(root/'runtime'/name).read_bytes())
   r=json.loads(result[1]);self.assertEqual((r['source_lead_onsets'],r['chart_taps'],r['automatic_lead_events']),(128,64,64))
   self.assertEqual(r['seconds'],'32/1');self.assertFalse(r['dropped_voices'])
+  self.assertEqual((r['title'],r['beat_grid']['segments'],r['beat_grid']['beats']),('CIRCUIT AFTER HOURS',1,64))
+ def test_title_rules(self):
+  b=convert('c4',title='')[0];self.assertEqual(b[12:16],bytes([1,0,1,0]));self.assertEqual(b[16:40],bytes(24))
+  with self.assertRaisesRegex(ScoreError,'title'):convert('c4',title='lower case')
+  with self.assertRaisesRegex(ScoreError,'title'):convert('c4',title='X'*25)
 if __name__=='__main__':unittest.main()

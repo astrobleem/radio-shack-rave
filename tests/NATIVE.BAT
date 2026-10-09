@@ -30,10 +30,11 @@ RSRAVE ORIGINAL.RBG /MISS
 if errorlevel 1 goto fail
 copy AUDIO.TXT E:\evidence\MISS.TXT > nul
 copy RUNLOG.TXT E:\evidence\MISS.LOG > nul
-RSRAVE ORIGINAL.RBG /AUTO /CALM
+RSRAVE ORIGINAL.RBG /AUTO /CALM /SHOT
 if errorlevel 1 goto fail
 copy AUDIO.TXT E:\evidence\CALM.TXT > nul
 copy RUNLOG.TXT E:\evidence\CALM.LOG > nul
+copy FRAME.RAW E:\evidence\CALM.RAW > nul
 RSRAVE ORIGINAL.RBG /RETRY
 if errorlevel 1 goto fail
 copy AUDIO.TXT E:\evidence\RETRY.TXT > nul
@@ -49,6 +50,7 @@ RSRAVE ORIGINAL.RBG /SPLASH
 if errorlevel 1 goto fail
 copy SPLASH.LOG E:\evidence\FALLBACK.LOG > nul
 copy FALLBACK.RAW E:\evidence\TITLE.RAW > nul
+copy SPLASH.RAW E:\evidence\SPLASH.RAW > nul
 RSRAVE ORIGINAL.RBG /SSKIP
 if errorlevel 1 goto fail
 copy SPLASH.LOG E:\evidence\SKIP.LOG > nul

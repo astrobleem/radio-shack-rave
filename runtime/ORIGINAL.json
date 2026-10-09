@@ -6,6 +6,11 @@
   },
   "auto_policy": "most audible attacks, then higher lower-median pitch, then lower source voice number",
   "automatic_lead_events": 64,
+  "beat_grid": {
+    "beats": 64,
+    "segments": 1,
+    "units": "16.16 BIOS ticks; integer quarter-note beats"
+  },
   "chart_taps": 64,
   "collapsed_backing_intervals": [],
   "dropped_voices": [],
@@ -43,8 +48,8 @@
     }
   ],
   "same_tick_backing_states": [],
-  "schema": "deterministic-rbg3-v3",
-  "score_sha256": "113a4e5ebc29ab46821b93e6405656927778814b3f19cbe5fa478032f5fda8d7",
+  "schema": "deterministic-rbg4-v4",
+  "score_sha256": "29c5e1aaf23db343e791ab3555c0a43193d45026890a73314bac95dd4dfbe230",
   "seconds": "32/1",
   "settings": {
     "difficulty": "normal",
@@ -59,6 +64,7 @@
       3
     ],
     "tempo": 120,
+    "title": "CIRCUIT AFTER HOURS",
     "transpose": 0,
     "voice_transpose": {},
     "volume": 100
@@ -388,6 +394,7 @@
       "start": "127/4"
     }
   ],
+  "title": "CIRCUIT AFTER HOURS",
   "transpositions": [
     {
       "input_range": [

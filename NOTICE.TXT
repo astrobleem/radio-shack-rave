@@ -1,8 +1,10 @@
 Radio Shack Rave, independent DOS hobby game, 2026.
 Game, generic converter and adaptation/tests are GNU GPL version 3; see LICENSE.
 Unchanged DOSSND/DOSGUARD/PITCORE source originated in the DOS-Sound-Owner
-project and is included with its scope documentation. Microsoft C 6 and its
-compiler/SDK tools are not bundled; rebuild with your own licensed toolchain.
+project and is included with its scope documentation. No compiler is bundled:
+rebuild with your own Microsoft C 6 (BUILD.BAT) or OpenWatcom 2 (tools/build_ow.sh).
+The preview RSRAVE.EXE in runtime was built from this source with OpenWatcom 2.
 The original Circuit After Hours composition/chart has a separate permissive
 grant in music/LICENSE.TXT. No imported songs, commercial notation, recordings
-or supplied logo artwork are included. No Radio Shack affiliation is asserted.
+or logo artwork are included; LOGO.BIN is optional and supplied by the user.
+No Radio Shack affiliation is asserted.

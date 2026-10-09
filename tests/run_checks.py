@@ -23,6 +23,15 @@ with tempfile.TemporaryDirectory(prefix='rave-host-') as tmp:
   subprocess.run(cmd,cwd=tmp,check=True,capture_output=True)
   if name=='edges':subprocess.run([str(out)],check=True)
   else:os.environ['RAVE_CORE_EXE']=str(out)
+ # The DOS game itself, type-checked as strict C89 (what MSC6 accepts) through
+ # a small host shim for <dos.h>/<conio.h>/<malloc.h>. DOSSND.C is the
+ # unchanged, separately qualified sound adapter and is not linted here.
+ if 'wcl386' not in args.cc.lower():
+  lint=subprocess.run([args.cc,'-x','c','-std=c89','-pedantic','-Wall','-Wextra','-Werror',
+   '-Wno-unused-function','-Wno-unused-parameter','-Wno-int-to-pointer-cast','-fsyntax-only',
+   '-DRAVE_LINT','-I',str(root/'tests/shim'),'-include',str(root/'tests/shim/malloc.h'),
+   str(root/'src/BEAT.C')],capture_output=True,text=True)
+  assert lint.returncode==0,lint.stderr
  sys.path.insert(0,str(root/'tests'))
  suite=unittest.defaultTestLoader.discover(str(root/'tests'),pattern='test_*.py')
  result=unittest.TextTestRunner(verbosity=2).run(suite)
@@ -33,4 +42,4 @@ with tempfile.TemporaryDirectory(prefix='rave-host-') as tmp:
  assert hit.stdout==ref.stdout and len(hit.stdout.splitlines())==256
  miss=subprocess.run([os.environ['RAVE_CORE_EXE'],str(root/'runtime/ORIGINAL.RBG'),'miss'],check=True,capture_output=True)
  assert len(miss.stdout.splitlines())==128
- print('PASS: pinned source/runtime, include closure, synthetic converter/retention tests, original 128-onset full lead and miss ownership')
+ print('PASS: pinned source/runtime, include closure, C89 game lint, synthetic converter/retention tests, original 128-onset full lead and miss ownership')

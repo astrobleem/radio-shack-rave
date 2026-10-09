@@ -1,10 +1,42 @@
-"""Deterministic offline MML -> normalized events -> RBG2 agency chart."""
+"""Deterministic offline MML -> normalized events -> RBG4 agency chart."""
 import argparse,hashlib,json,struct
 from fractions import Fraction as F
 from pathlib import Path
 from mml import parse,ScoreError,rounded,CLOCK,PITCH
 
 DIFFICULTIES={'easy':500,'normal':280,'hard':200,'full':0}
+DIFFICULTY_CODE={'easy':0,'normal':1,'hard':2,'full':3}
+TITLE_CHARS=set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !?'.,-:&/+")
+TITLE_MAX=24
+MAX_BEAT_SEGMENTS=64
+def clean_title(text):
+    """Uppercase, map characters the DOS font lacks to spaces, collapse, truncate."""
+    out=''.join(c if c in TITLE_CHARS else ' ' for c in str(text).upper())
+    return ' '.join(out.split())[:TITLE_MAX].rstrip()
+def beat_seconds(tempo_map,beat):
+    total=F(0);prev=F(0);bpm=tempo_map[0][1]
+    for at,value in tempo_map:
+        if at>beat:break
+        total+=(at-prev)*60/bpm;prev=at;bpm=value
+    return total+(beat-prev)*60/bpm
+def beat_segments(tempo_map,duration):
+    """Integer quarter-note beats as runs of equal spacing, in 16.16 BIOS ticks."""
+    times=[];k=0
+    while True:
+        t=beat_seconds(tempo_map,F(k))*CLOCK
+        if t>=duration*CLOCK:break
+        times.append(t);k+=1
+    segs=[]
+    for k,t in enumerate(times):
+        if segs:
+            first,start,period,count=segs[-1]
+            if count==1 or t==start+period*count:
+                if count==1:period=t-start
+                segs[-1]=(first,start,period,count+1);continue
+        segs.append((k,t,F(0),1))
+    if len(segs)>MAX_BEAT_SEGMENTS:
+        raise ScoreError(f'{len(segs)} distinct tempo runs exceed the {MAX_BEAT_SEGMENTS}-segment beat grid; simplify tempo changes')
+    return [(first,rounded(start*65536),rounded(period*65536),count) for first,start,period,count in segs]
 def rational(x):return f'{x.numerator}/{x.denominator}'
 def stable_json(value):return (json.dumps(value,sort_keys=True,indent=2)+'\n').encode('utf8')
 def audible(ns):return [n for n in ns if n['note'] and n['volume']]
@@ -14,13 +46,15 @@ def ranking(ns,index):
     return (len(notes),median,-index)
 
 def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='normal',gap_ms=None,
-            octave=4,length=4,tempo=120,volume=100,transpose=0,voice_transpose=None):
+            octave=4,length=4,tempo=120,volume=100,transpose=0,voice_transpose=None,title=''):
     """Return exact byte artifacts; does not touch network or filesystem."""
-    if difficulty not in DIFFICULTIES:raise ScoreError('difficulty must be easy/normal/hard')
+    if difficulty not in DIFFICULTIES:raise ScoreError('difficulty must be easy/normal/hard/full')
     if gap_ms is None:gap_ms=DIFFICULTIES[difficulty]
     if not isinstance(gap_ms,int) or not (200<=gap_ms<=2000 or (difficulty=='full' and gap_ms==0)):
-        raise ScoreError('gap_ms must be integer200..2000, or0 only for explicit full melody')
+        raise ScoreError('gap_ms must be an integer 200..2000, or 0 only for explicit full melody')
     if not isinstance(transpose,int) or not -48<=transpose<=48:raise ScoreError('transpose must be integer -48..48')
+    if not isinstance(title,str) or clean_title(title)!=title:
+        raise ScoreError(f'title must be at most {TITLE_MAX} characters of A-Z 0-9 space and !?\'.,-:&/+')
     voice_transpose=voice_transpose or {}
     if any(not isinstance(k,int) or not isinstance(v,int) or not -48<=v<=48 for k,v in voice_transpose.items()):
         raise ScoreError('voice transpositions need 1-based voice numbers and integer -48..48 shifts')
@@ -94,16 +128,20 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
             packed[-1]=row
         else:packed.append(row)
     if not 2<=len(packed)<=1024:raise ScoreError('native stream requires 2..1024 states')
-    blob=struct.pack('<4sHHHH',b'RBG3',3,total,len(packed),len(chosen))
+    segments=beat_segments(tempo_map,duration)
+    blob=struct.pack('<4sHHHH',b'RBG4',4,total,len(packed),len(chosen))
+    blob+=struct.pack('<HBx24s',len(segments),DIFFICULTY_CODE[difficulty],title.encode('ascii'))
     blob+=b''.join(struct.pack('<4H3Bx',tick,*d,*a) for tick,d,a in packed)
     blob+=b''.join(struct.pack('<3H4B',*n) for n in chosen)
+    blob+=b''.join(struct.pack('<LLHH',start,period,first,count) for first,start,period,count in segments)
     normalized=dict(schema='normalized-mml-v2',tempo_map=[dict(beat=rational(t),bpm=b) for t,b in tempo_map],
         duration_seconds=rational(duration),voices=[[dict(start=rational(n['start']),end=rational(n['end']),
             note=n['note'],level=n['volume']) for n in ns] for ns in voices])
-    settings=dict(lead=lead,lead_policy=lead_policy,parts=parts,difficulty=difficulty,gap_ms=gap_ms,octave=octave,
+    settings=dict(title=title,lead=lead,lead_policy=lead_policy,parts=parts,difficulty=difficulty,gap_ms=gap_ms,octave=octave,
         length=length,tempo=tempo,volume=volume,transpose=transpose,
         voice_transpose={str(k):v for k,v in sorted(voice_transpose.items())})
-    report=dict(schema='deterministic-rbg3-v3',source_sha256=hashlib.sha256(text.encode('ascii')).hexdigest(),
+    report=dict(schema='deterministic-rbg4-v4',title=title,
+        beat_grid=dict(segments=len(segments),beats=sum(c for *_,c in segments),units='16.16 BIOS ticks; integer quarter-note beats'),source_sha256=hashlib.sha256(text.encode('ascii')).hexdigest(),
         score_sha256=hashlib.sha256(blob).hexdigest(),settings=settings,
         lead_voice=lead_index+1,psg_voices=[i+1 for i in selected],
         ranking=[dict(voice=i+1,attacks=ranking(voices[i],i)[0],lower_median_pitch=ranking(voices[i],i)[1]) for i in ranks],
@@ -129,6 +167,7 @@ def main():
     p.add_argument('--difficulty',choices=DIFFICULTIES,default='normal');p.add_argument('--gap-ms',type=int)
     p.add_argument('--octave',type=int,default=4);p.add_argument('--length',type=int,default=4)
     p.add_argument('--tempo',type=int,default=120);p.add_argument('--volume',type=int,default=100)
+    p.add_argument('--title',help=f'song title shown in game (default: source file name), up to {TITLE_MAX} chars')
     p.add_argument('--transpose',type=int,default=0);p.add_argument('--voice-transpose',action='append',default=[],metavar='VOICE:SEMITONES')
     args=p.parse_args();opts=vars(args).copy();source=opts.pop('source');out=opts.pop('output')
     try:
@@ -139,6 +178,9 @@ def main():
             if k in shifts:raise ScoreError('duplicate voice transpose setting')
             shifts[k]=v
         opts['voice_transpose']=shifts
+        opts['title']=clean_title(args.title if args.title is not None else source.stem)
+        if args.title is not None and opts['title']!=args.title.upper():
+            print(f'Title normalized to {opts["title"]!r}')
         blob,report,normalized=convert(source.read_text(encoding='ascii'),**opts)
         # Validate everything before writing any output.
         out.parent.mkdir(parents=True,exist_ok=True)
