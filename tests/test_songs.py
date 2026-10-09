@@ -158,6 +158,12 @@ int main(void) {
  key_once=1;key_at=clock_tick;assert(game_run(1)==A_EXIT);assert(exit_reason==1);
  song_ready=0;next_result=0;assert(song_prepare());assert(!songs_mode && loads==4);
  songs_mode=1;song_ready=0;load_result=0;assert(!song_prepare());assert(!songs_mode);
+ /* After any game the next song is chosen when the title is entered, so the
+    marquee names it and Space/idle demo play that same song. */
+ songs_mode=1;next_result=1;load_result=1;song_ready=0;n=loads;
+ assert(action_ready(A_TITLE));assert(loads==n+1 && song_ready);
+ assert(action_ready(A_PLAY) && action_ready(A_DEMO));assert(loads==n+1);
+ assert(action_ready(A_SPLASH) && action_ready(A_EXIT));assert(loads==n+1);
  songs_mode=0;key_once=0;assert(game_run(1)==A_SPLASH);
  tour_mode=1;assert(game_run(1)==A_EXIT);
  n=resets;auto_mode=4;key_once=19;key_at=clock_tick;
@@ -166,7 +172,7 @@ int main(void) {
  cleanup();assert(!owned && !keyboard_owned && !video_owned && !lead_div && !psg_log);
  assert(releases==1 && vectors==1 && restored_mode==3);
  cleanup();assert(releases==1 && vectors==1); /* Idempotent final cleanup. */
- puts("PASS production demo/end/Space/Escape/fallback/mute/reset");return 0;
+ puts("PASS production demo/end/Space/Escape/fallback/mute/reset/title-names-next");return 0;
 }
 '''
 

@@ -1,7 +1,7 @@
 {
   "status": "EXPERIMENTAL; LOCAL_SOURCE_TESTED; EXACT_HEAD_CI_REQUIRED_FOR_FIXED_TOOLCHAIN_RUNTIME",
   "engine": "v6 showcase + lazy playlist/demo + word rotation",
-  "runtime_sha256": "1787a5efe93d0828a7951ceff5fab12f5d472eb0daf1fbb8acc447aab1ef4e9c",
+  "runtime_sha256": "d3f13a1acf9dd39778c0b335e46f361297bd7bde7a0b6a0834510155c80bbcc6",
   "toolchains": {
     "bundled_runtime": "Official OpenWatcom2 2026-10-01-Build, fresh Linux CI artifact; strict rebuild comparison enabled",
     "CI": "Official immutable date tag2026-10-01-Build; SHA256 independently downloaded and verified before pinning"

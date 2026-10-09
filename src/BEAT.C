@@ -391,6 +391,13 @@ static int song_prepare(void)
     }
     song_ready=1;return 1;
 }
+/* Screens that name or start the next song settle it first, so the title
+   marquee always names the song that Space (or the idle demo) will play. */
+static int action_ready(int action)
+{
+    if(action==A_PLAY || action==A_DEMO || action==A_TITLE)return song_prepare();
+    return 1;
+}
 static int autoplays(void){return auto_mode==1 || auto_mode==3 || auto_mode==7 || auto_mode==9;}
 /* One play of the song. demo: the attract-mode autoplayer, any key leaves. */
 static int game_run(int demo)
@@ -475,7 +482,7 @@ static int run_show(void)
     else action=splash_run();
     for(;;) {
         if(action==A_EXIT)return action;
-        if((action==A_PLAY || action==A_DEMO) && !song_prepare())return A_EXIT;
+        if(!action_ready(action))return A_EXIT;
         if(action==A_PLAY)action=game_run(0);
         else if(action==A_TITLE)action=title_run();
         else if(action==A_DEMO)action=game_run(1);
