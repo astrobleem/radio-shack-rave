@@ -191,6 +191,19 @@ class SongsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='rave-songs-') as td:
             folder = Path(td)
             loader = generate(ROOT).split('int main(')[0]
+            # Production DOS paths are valid on Windows. Translate separators
+            # only at the host-test file boundary for POSIX CI; body stays DOS.
+            shim = r'''
+static FILE *host_fopen(const char *name,const char *mode) {
+ char path[260];unsigned i;
+ if(strlen(name)>=sizeof(path))return 0;
+ strcpy(path,name);
+ for(i=0;path[i];i++)if(path[i]=='\\')path[i]='/';
+ return fopen(path,mode);
+}
+'''
+            loader = loader.replace('static int title_char(', shim+'static int title_char(', 1)
+            loader = loader.replace('f=fopen(name,"rb")', 'f=host_fopen(name,"rb")')
             exe = self.compile(loader + CATALOG, folder, 'catalog')
             subprocess.run([str(exe), 'catalog'], cwd=folder, check=True)
             songs = folder / 'SONGS'; songs.mkdir()

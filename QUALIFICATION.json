@@ -1,9 +1,9 @@
 {
-  "status": "LOCAL_GUEST_FIXTURE_PASS; PUBLIC_HEAD_CI_PENDING",
+  "status": "EXPERIMENTAL; LOCAL_SOURCE_TESTED; EXACT_HEAD_CI_REQUIRED_FOR_FIXED_TOOLCHAIN_RUNTIME",
   "engine": "v6 showcase + lazy playlist/demo + word rotation",
-  "runtime_sha256": "0649e8cbc32f5f08004b5811e3183d2d8c5c5d324cc3c828a24ad5e84ea4e8a9",
+  "runtime_sha256": "1787a5efe93d0828a7951ceff5fab12f5d472eb0daf1fbb8acc447aab1ef4e9c",
   "toolchains": {
-    "bundled_runtime": "Existing local OpenWatcom2 Windows installation; DOS8088 small model, 4096paragraph cap",
+    "bundled_runtime": "Official OpenWatcom2 2026-10-01-Build, fresh Linux CI artifact; strict rebuild comparison enabled",
     "CI": "Official immutable date tag2026-10-01-Build; SHA256 independently downloaded and verified before pinning"
   },
   "local_tests": {
@@ -11,7 +11,7 @@
     "pack_regressions": 9,
     "native": "DOS enumeration RBG2/3/4, malformed selection skip, shuffle cycles including64candidates, disappeared-file skip, empty/all-invalid fallback, explicit playback, AUTO/MISS exact audio, demo advance, IRQ1 Escape and cleanup. Word geometry and hit/miss images inspected.",
     "public_host_unit_tests": 30,
-    "public_source_rebuild": "Byte-identical to local native-tested runtime with existing local compiler"
+    "public_source_rebuild": "Public source with existing Windows compiler exactly reproduces local native-tested Windows runtime0649e8...; bundled fixed-toolchain runtime is qualified by exact-head CI."
   },
   "bounds": {
     "candidate_filenames": 64,
@@ -20,7 +20,7 @@
     "states": 1024,
     "word_cache_used": 12525,
     "word_cache_bytes": 14336,
-    "maximum_image_plus_allocation_bytes": 113120,
+    "maximum_image_plus_allocation_bytes": 121600,
     "PSP_environment_excluded": true
   },
   "host_shutdown": "Local DOSBox-X2025.12.01 exited with0xC0000005 after guest logs completed; cause unresolved. Earlier0xC0000409 retained locally. Guest cleanup records pass independently.",
@@ -29,5 +29,6 @@
     "song noise/drum format extension",
     "RMS VU"
   ],
-  "physical": "No physical Tandy or4.77MHz performance/listening claim. Only original demo and synthetic fixtures published; private song media excluded."
+  "physical": "No physical Tandy or4.77MHz performance/listening claim. Only original demo and synthetic fixtures published; private song media excluded.",
+  "local_tested_windows_runtime_sha256": "0649e8cbc32f5f08004b5811e3183d2d8c5c5d324cc3c828a24ad5e84ea4e8a9"
 }
