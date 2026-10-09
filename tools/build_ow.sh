@@ -14,5 +14,6 @@ tmp=$(mktemp -d)
 cp -r "$root/src/." "$tmp/"
 (cd "$tmp" && wcl -q -bt=dos -ms -0 -ox -w4 -fe=RSRAVE.EXE BEAT.C DOSSND.C)
 cp "$tmp/RSRAVE.EXE" "$out"
+python3 "$root/tools/cap_dos_memory.py" "$out"
 rm -rf "$tmp"
 echo "built $out"

@@ -25,7 +25,15 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq dosbox-x
       - name: Install OpenWatcom 2
         run: |
-          curl -sSL -o ow.tar.xz https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.xz
+          curl --fail --location -o ow.tar.xz https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.xz
+          echo '91bb65c60dc82d68b12a9d7f3d49397d694095497f46d931b09a8af64dc511f4  ow.tar.xz' | sha256sum --check
           mkdir -p "$RUNNER_TEMP/ow" && tar xJf ow.tar.xz -C "$RUNNER_TEMP/ow"
       - name: Emulated DOS diagnostics
-        run: WATCOM="$RUNNER_TEMP/ow" python3 -B tests/dos_smoke.py
+        run: WATCOM="$RUNNER_TEMP/ow" python3 -B tests/dos_smoke.py --keep build/qualified
+      - name: Retain exact CI build and native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-dos-${{ github.sha }}
+          path: build/qualified
+          if-no-files-found: error

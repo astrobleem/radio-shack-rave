@@ -26,6 +26,9 @@ def main():
     p.add_argument('--keep',type=Path);a=p.parse_args()
     work=Path(tempfile.mkdtemp(prefix='rave-dos-'))
     subprocess.run([str(root/'tools/build_ow.sh'),str(work/'RSRAVE.EXE')],check=True,capture_output=True)
+    if a.keep:
+        a.keep.mkdir(parents=True,exist_ok=True)
+        shutil.copy(work/'RSRAVE.EXE',a.keep/'RSRAVE.EXE')
     shutil.copy(root/'runtime/ORIGINAL.RBG',work);shutil.copy(root/'tests/BAD.RBG',work)
     (work/'EV').mkdir()
     auto=['mount c '+str(work),'c:','RSRAVE BAD.RBG /TEST','if errorlevel 2 echo REJECTED>EV\\BAD.TXT']

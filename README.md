@@ -72,6 +72,18 @@ taken from the MML tempo map). The grid drives the scrolling beat and bar lines
 and the tunnel pulses. RBG2 and RBG3 files still load; they get no beat grid
 and use the file name as their title.
 
+Existing RBG2/RBG3 song files can be used directly with this branch: copy them
+beside the new executable in a separate folder. Do not overwrite an existing
+song kit. No per-song migration or chart edits are required. Legacy files keep
+their authored pitch/onset/release and required/automatic flags; RBG4 adds only
+the title/difficulty/beat metadata. Synthetic CI checks cover all three formats.
+Local-only compatibility checks cover the preserved library; those song files
+and their audio/notation are not included in public artifacts.
+
+The Watcom cross-build now applies a checked 4096-paragraph extra DOS allocation
+cap, matching the intent of the MSC6 linker cap. The 9 KB far cache fits within
+that budget. This is an allocation bound, not a physical CPU performance claim.
+
 Bounded ArcheAge-style MML profile: optional `MML@...;`, case-insensitive notes,
 rests, sharps/flats, octaves, lengths, dots, tempo, volume, same-pitch ties and
 up to eight comma voices. Defaults O4/L4/T120/V100 are reported. Tempo conflicts,

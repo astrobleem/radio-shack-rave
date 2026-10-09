@@ -13,8 +13,10 @@ int main(int argc,char **argv)
     if(argc!=3)return 2;play=!strcmp(argv[2],"hit");reference_mode=!strcmp(argv[2],"ref");
     f=fopen(argv[1],"rb");if(!f)return 2;
     fread(magic,1,4,f);ver=word(f);end=word(f);ns=word(f);taps=word(f);
-    if(memcmp(magic,"RBG4",4)||ver!=4||taps>MAX_NOTES){fclose(f);return 2;}
-    fseek(f,40L+12L*ns,SEEK_SET);
+    if(!((ver==2&&!memcmp(magic,"RBG2",4)) ||
+         (ver==3&&!memcmp(magic,"RBG3",4)) ||
+         (ver==4&&!memcmp(magic,"RBG4",4))) || taps>MAX_NOTES){fclose(f);return 2;}
+    fseek(f,(ver==4?40L:12L)+12L*ns,SEEK_SET);
     for(i=0;i<taps;i++) {
         chart[i].tick=word(f);chart[i].end_tick=word(f);chart[i].divisor=word(f);
         chart[i].lane=getc(f);chart[i].attenuation=getc(f);

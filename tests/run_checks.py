@@ -16,13 +16,18 @@ def closure(path):
   closure(target)
 for f in (root/'src').glob('*.C'):closure(f)
 with tempfile.TemporaryDirectory(prefix='rave-host-') as tmp:
- for name in ['ownership','edges']:
+ sys.path.insert(0,str(root/'tests'))
+ from loader_source import generate
+ loader=Path(tmp)/'loader.c';loader.write_text(generate(root))
+ for name in ['ownership','edges','loader']:
   out=Path(tmp)/(name+'.exe');source=root/'tests'/(name+'.c')
+  if name=='loader':source=loader
   if 'wcl386' in args.cc.lower():cmd=[args.cc,'-q','-bt=nt','-fe='+out.name,str(source)]
   else:cmd=[args.cc,'-std=c89','-Wall','-Wextra',str(source),'-o',str(out)]
   subprocess.run(cmd,cwd=tmp,check=True,capture_output=True)
   if name=='edges':subprocess.run([str(out)],check=True)
-  else:os.environ['RAVE_CORE_EXE']=str(out)
+  elif name=='ownership':os.environ['RAVE_CORE_EXE']=str(out)
+  else:os.environ['RAVE_LOADER_EXE']=str(out)
  # The DOS game itself, type-checked as strict C89 (what MSC6 accepts) through
  # a small host shim for <dos.h>/<conio.h>/<malloc.h>. DOSSND.C is the
  # unchanged, separately qualified sound adapter and is not linted here.
