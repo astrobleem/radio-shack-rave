@@ -69,6 +69,10 @@ def main():
     if not bad:
         subprocess.run([sys.executable,str(root/'tests/dos_playlist.py'),'--runtime',str(work/'RSRAVE.EXE')]+(['--keep',str(a.keep/'playlist')] if a.keep else []),check=True)
     print('FAIL' if bad else 'PASS: emulated DOS diagnostics')
+    if a.keep and not bad:
+        build['native_tests']='PASS baseline diagnostics and original synthetic playlist/word fixtures'
+        build['source_head']=os.environ.get('GITHUB_SHA','local')
+        (a.keep/'BUILD.json').write_text(json.dumps(build,indent=2)+'\n')
     shutil.rmtree(work)
     sys.exit(1 if bad else 0)
 if __name__=='__main__':main()

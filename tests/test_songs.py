@@ -85,7 +85,7 @@ int main(int argc,char **argv) {
    assert(songs_next(load_score));assert(duration && required_taps);
    assert(song_last!=previous);previous=song_last;
   }
-  assert(!remove("SONGS\\ONE.RBG"));assert(!remove("SONGS\\TWO.RBG"));
+  assert(!remove("SONGS/ONE.RBG"));assert(!remove("SONGS/TWO.RBG"));
   assert(!songs_next(load_score));assert(!songs_next(load_score));
  }
  puts("PASS catalog/loader");return 0;
