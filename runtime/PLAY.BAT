@@ -1,2 +1,2 @@
 @echo off
-RSRAVE ORIGINAL.RBG %1 %2
+RSRAVE %1 %2

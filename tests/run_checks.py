@@ -3,6 +3,7 @@ import argparse,subprocess,tempfile,os,sys,json,hashlib,re,unittest
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--cc',default='gcc');args=p.parse_args()
+os.environ['RAVE_TEST_CC']=args.cc
 manifest=json.loads((root/'SOURCE-PROVENANCE.json').read_text())
 for name,sha in manifest['pins'].items():
  assert hashlib.sha256((root/name).read_bytes()).hexdigest()==sha,name
@@ -19,13 +20,13 @@ with tempfile.TemporaryDirectory(prefix='rave-host-') as tmp:
  sys.path.insert(0,str(root/'tests'))
  from loader_source import generate
  loader=Path(tmp)/'loader.c';loader.write_text(generate(root))
- for name in ['ownership','edges','loader']:
+ for name in ['ownership','edges','words','loader']:
   out=Path(tmp)/(name+'.exe');source=root/'tests'/(name+'.c')
   if name=='loader':source=loader
   if 'wcl386' in args.cc.lower():cmd=[args.cc,'-q','-bt=nt','-fe='+out.name,str(source)]
   else:cmd=[args.cc,'-std=c89','-Wall','-Wextra',str(source),'-o',str(out)]
   subprocess.run(cmd,cwd=tmp,check=True,capture_output=True)
-  if name=='edges':subprocess.run([str(out)],check=True)
+  if name in ('edges','words'):subprocess.run([str(out)],check=True)
   elif name=='ownership':os.environ['RAVE_CORE_EXE']=str(out)
   else:os.environ['RAVE_LOADER_EXE']=str(out)
  # The DOS game itself, type-checked as strict C89 (what MSC6 accepts) through
@@ -47,4 +48,4 @@ with tempfile.TemporaryDirectory(prefix='rave-host-') as tmp:
  assert hit.stdout==ref.stdout and len(hit.stdout.splitlines())==256
  miss=subprocess.run([os.environ['RAVE_CORE_EXE'],str(root/'runtime/ORIGINAL.RBG'),'miss'],check=True,capture_output=True)
  assert len(miss.stdout.splitlines())==128
- print('PASS: pinned source/runtime, include closure, C89 game lint, synthetic converter/retention tests, original 128-onset full lead and miss ownership')
+ print('PASS: pinned source/runtime, include closure, '+('strict C89 game lint, ' if 'wcl386' not in args.cc.lower() else 'host lint skipped for Watcom; DOS cross-build separate, ')+'synthetic converter/retention tests, original 128-onset full lead and miss ownership')

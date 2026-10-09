@@ -65,7 +65,7 @@ static long beat_fine(const BeatCur *c){return (long)(c->t>>8);}
 
 /* Far cache (inside LINK /CP headroom): the static tunnel, for erasing
    pulse rings by byte copy, and pre-rendered judgment words. */
-#define CACHE_BYTES 9216
+#define CACHE_BYTES 14336
 #define TUN_B0 ((TUN_X-TUN_R)>>1)
 #define TUN_BW 47
 #define TUN_Y0 (TUN_Y-TUN_R)
@@ -73,7 +73,7 @@ static long beat_fine(const BeatCur *c){return (long)(c->t>>8);}
 typedef struct { unsigned off,w,h,stride; } Sprite;
 static unsigned char far *cache;
 static unsigned cache_used;
-static Sprite word_spr[4];
+static Sprite word_spr[WORD_COUNT];
 static int sprite_make(Sprite *sp,const char *s,const Style *st)
 {
     unsigned n;
@@ -504,15 +504,14 @@ static void label_num(char *buf,const char *label,unsigned v,int width)
     strcpy(buf,label);fmt_u(buf+strlen(label),v,0,' ');
     while((int)strlen(buf)<width)strcat(buf," ");
 }
-static const char *word_text[4]={"","NICE!","AWESOME!","MISS"};
 static const unsigned char rows_white7[7]={15,15,15,15,15,15,15};
 static void words_init(void)
 {
     Style s;unsigned k;
-    for(k=1;k<4;k++) {
+    for(k=1;k<WORD_COUNT;k++) {
         style(&s,2,15,1,NO_COLOR,0);
         if(k==1){s.rows=rows_green;s.nrows=6;s.outline=2;}
-        else if(k==2){s.rows=rows_cyan;s.nrows=6;}
+        else if(k<8){s.rows=rows_cyan;s.nrows=6;}
         else {s.rows=rows_red;s.nrows=6;s.outline=4;}
         sprite_make(&word_spr[k],word_text[k],&s);
     }
@@ -520,7 +519,7 @@ static void words_init(void)
 /* Pop frame: flat white. Then the outlined, shaded word from the cache. */
 static void word_draw(unsigned w)
 {
-    unsigned kind=w>>1,pop=w&1,n;char buf[16];
+    unsigned kind=w>>1,pop=w&1,n,variant;char buf[16];
     fill(220,144,100,19,0);
     if(!kind)return;
     if(kind>=4) {
@@ -529,10 +528,11 @@ static void word_draw(unsigned w)
         else text(269-(int)n*3,150,buf,14,0);
         return;
     }
-    n=strlen(word_text[kind]);
-    if(pop || !word_spr[kind].h)
-        text2x(269-(int)n*6,146,word_text[kind],pop?rows_white7:(kind==1?rows_green:kind==2?rows_cyan:rows_red),0,0,0);
-    else sprite_draw(&word_spr[kind],269-(int)word_spr[kind].w/2,144);
+    variant=kind==1?1:fx_word;
+    n=strlen(word_text[variant]);
+    if(pop || !word_spr[variant].h)
+        text2x(269-(int)n*6,146,word_text[variant],pop?rows_white7:(kind==1?rows_green:kind==2?rows_cyan:rows_red),0,0,0);
+    else sprite_draw(&word_spr[variant],269-(int)word_spr[variant].w/2,144);
 }
 static int milestone_until,milestone_kind;
 static unsigned milestone_last;
@@ -540,11 +540,13 @@ static unsigned milestone_last;
    never lands every counter in the same frame; the rest follow next frame. */
 static void hud_frame(int now)
 {
-    char buf[20];unsigned v,l,lvl,s,w;int budget=2;
+    char buf[20];unsigned v,l,lvl,s,w,token;int budget=2;
     if(now<milestone_until)w=(unsigned)milestone_kind*2+(now<milestone_until-12);
     else if(now<fx_until)w=fx_kind*2+(now<fx_start+2);
     else w=0;
-    if(w!=hud_word){hud_word=w;word_draw(w);}
+    token=w;
+    if(w && (w>>1)<4)token|=fx_word<<8;
+    if(token!=hud_word){hud_word=token;word_draw(w);}
     if(hud_combo!=combo) {
         hud_combo=combo;fmt_u(buf,combo,0,' ');budget--;
         fill(260,41,56,14,0);
