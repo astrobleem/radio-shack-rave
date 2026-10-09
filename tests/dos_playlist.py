@@ -30,8 +30,9 @@ def main():
     for folder,wait in [('EMPTY',3),('INVALID',3),('DEMO',12)]:
         batch += ['cd '+folder,f'AUTOTYPE -w {wait} esc','..\\RSRAVE /DEMO',
                   f'copy RUNLOG.TXT ..\\EV\\{folder}.LOG > nul','cd ..']
-    # Allow the final queued Escape break to reach BIOS before emulator shutdown.
-    batch += ['CHOICE /T:N,1','echo DONE > EV\\DONE.TXT','goto end',
+    # AUTOTYPE Start joins the previous worker. A comma-only zero-delay sequence
+    # touches no key events and lets the Escape break finish before shutdown.
+    batch += ['AUTOTYPE -w 0 -p 0 ,','echo DONE > EV\\DONE.TXT','goto end',
               ':failed','cd \\','echo FAILED > EV\\DONE.TXT',':end']
     (work/'CHECK.BAT').write_text('\n'.join(batch)+'\n')
     if a.prepare_only:print('Prepared synthetic fixtures and native catalog; no emulator launched.');return

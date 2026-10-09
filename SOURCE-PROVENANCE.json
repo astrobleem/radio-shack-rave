@@ -25,7 +25,7 @@
     "src/win30/DRIVER/PITCORE.H": "a842095954c2e08cf0d8003ec6df9a3a7d90f8c73641f2b813fe8cea197a1f0e",
     "tests/BAD.RBG": "92a1e1cdf2cbebe3014d51188300159745a75a7104c37d2b7317f9930124f230",
     "tests/NATIVE.BAT": "2cb5a56603e6181330bca2fc8adaa9d3529c4e1c878b54a0bd53803b298ba90c",
-    "tests/dos_smoke.py": "36dad68b1ea1725347fb3c9716f35737773c3d8bed8bc6a667238570cd0b7e5a",
+    "tests/dos_smoke.py": "30e1e585dc242f23874f81f402a77db39655fb5df89ac267fe8eb410339a49cc",
     "tests/edges.c": "e2675740b66d095fc2e1ce2b811626c9dd0ffb48f32f68be2fac57ee692f2191",
     "tests/loader_source.py": "061d640b5bcb47a50ee1ee93b6e56116b43edf181f46b299c907cde40337f73a",
     "tests/ownership.c": "8afe138fdcbe543cae4aebcd979ad19300f51384cbbf0987cb44b953f2cf6584",
@@ -49,7 +49,7 @@
     "tests/test_chart_policy.py": "d4d6adda350a84eb595e8bb43a025cbae59bd00bf2b1dfbe21cd029be4baf705",
     "tests/test_lane_windows.py": "a291378431e8eb9d732e40db36be0cbe38c479bfbe3b81a87ff10101847d6352",
     "tests/words.c": "342c24fccbfcdf2146b7c62ab4ffde703073d63fda993b374d8f663c5e0b5c54",
-    "tests/dos_playlist.py": "b1f96df1cd32c18935f45a4413fcfdb2241ca2b7bc99ea3303ac70037d82f7fa",
+    "tests/dos_playlist.py": "87795811dcc7066818d4afb7f6cfd744cbcb6f8a3eaea4f4e6cb67084e57ff58",
     "tests/playlist_fixtures.py": "325dedc618e1907e490d3a3dde23cd24989fc72463f2b677bfdc1d86f308d35f",
     "tests/playlist_catalog.c": "36ee33802dd30ae38edd5f62870d8bd1320a3f98905b6c02bdcba8e5fbf95449",
     "tests/test_playlist_fixtures.py": "507ece57125a67fcbe4675d159c6c626cec54b59090f4177297ce81e75a794ed"
