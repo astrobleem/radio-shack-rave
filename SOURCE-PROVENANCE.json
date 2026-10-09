@@ -25,7 +25,7 @@
     "src/win30/DRIVER/PITCORE.H": "a842095954c2e08cf0d8003ec6df9a3a7d90f8c73641f2b813fe8cea197a1f0e",
     "tests/BAD.RBG": "92a1e1cdf2cbebe3014d51188300159745a75a7104c37d2b7317f9930124f230",
     "tests/NATIVE.BAT": "2cb5a56603e6181330bca2fc8adaa9d3529c4e1c878b54a0bd53803b298ba90c",
-    "tests/dos_smoke.py": "927d9108b51e9656e22dea69594d37aa5c8b8585a99c6637a4cd4eea6d92d443",
+    "tests/dos_smoke.py": "f41e4a7fdbae91d33a754411630d014e27289fecaa6e5a7a84e381c0644f866d",
     "tests/edges.c": "e2675740b66d095fc2e1ce2b811626c9dd0ffb48f32f68be2fac57ee692f2191",
     "tests/loader_source.py": "061d640b5bcb47a50ee1ee93b6e56116b43edf181f46b299c907cde40337f73a",
     "tests/ownership.c": "8afe138fdcbe543cae4aebcd979ad19300f51384cbbf0987cb44b953f2cf6584",

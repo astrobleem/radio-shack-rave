@@ -38,7 +38,7 @@ def main():
         if single:auto.append(f'copy {single} EV\\{single} > nul')
     auto.append('exit')
     conf=work/'rave.conf'
-    conf.write_text(f"""[sdl]\noutput=surface\n[dosbox]\nmachine=tandy\nmemsize=640\nquit warning=false
+    conf.write_text(f"""[sdl]\noutput=surface\n[dosbox]\nmachine=tandy\nmemsize=1\nquit warning=false
 [cpu]\ncore=normal\ncputype=8086_prefetch\ncycles=fixed {a.cycles}\n[mixer]\nnosound=true
 [autoexec]\n"""+'\n'.join(auto)+'\n')
     env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy')
