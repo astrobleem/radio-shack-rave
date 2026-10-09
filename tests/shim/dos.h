@@ -11,6 +11,12 @@ union REGS { struct WORDREGS x; struct BYTEREGS h; };
 int int86(int,union REGS *,union REGS *);
 void (*_dos_getvect(unsigned))(void);
 void _dos_setvect(unsigned,void (*)(void));
+#define _A_NORMAL 0
+#define _A_SUBDIR 16
+#define _A_VOLID 8
+struct find_t {unsigned attrib;char name[13];};
+unsigned _dos_findfirst(const char *,unsigned,struct find_t *);
+unsigned _dos_findnext(struct find_t *);
 static unsigned irq_save(void){return 0;}
 static void irq_restore(unsigned f){(void)f;}
 #endif

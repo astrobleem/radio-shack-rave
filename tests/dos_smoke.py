@@ -6,7 +6,7 @@ with the recorded v5 native evidence.
 
 This is an emulator smoke test, not hardware timing or listening.
 """
-import argparse,os,shutil,subprocess,sys,tempfile
+import argparse,os,shutil,subprocess,sys,tempfile,json,hashlib
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 CASES=[
@@ -26,10 +26,13 @@ def main():
     p.add_argument('--keep',type=Path);a=p.parse_args()
     work=Path(tempfile.mkdtemp(prefix='rave-dos-'))
     subprocess.run([str(root/'tools/build_ow.sh'),str(work/'RSRAVE.EXE')],check=True,capture_output=True)
-    assert (work/'RSRAVE.EXE').read_bytes()==(root/'runtime/RSRAVE.EXE').read_bytes(), 'Fresh CI binary differs from pinned runtime'
     if a.keep:
         a.keep.mkdir(parents=True,exist_ok=True)
         shutil.copy(work/'RSRAVE.EXE',a.keep/'RSRAVE.EXE')
+        build={'fresh_sha256':hashlib.sha256((work/'RSRAVE.EXE').read_bytes()).hexdigest(),'pinned_sha256':hashlib.sha256((root/'runtime/RSRAVE.EXE').read_bytes()).hexdigest(),'native_tests':'PENDING until the diagnostics below complete'}
+        (a.keep/'BUILD.json').write_text(json.dumps(build,indent=2)+'\n')
+    assert (work/'RSRAVE.EXE').read_bytes()==(root/'runtime/RSRAVE.EXE').read_bytes(), 'Fresh CI binary differs from pinned runtime; retained build is not yet native-qualified'
+    subprocess.run([sys.executable,str(root/'tests/dos_playlist.py'),'--runtime',str(work/'RSRAVE.EXE')]+(['--keep',str(a.keep/'playlist')] if a.keep else []),check=True)
     shutil.copy(root/'runtime/ORIGINAL.RBG',work);shutil.copy(root/'tests/BAD.RBG',work)
     (work/'EV').mkdir()
     auto=['mount c '+str(work),'c:','RSRAVE BAD.RBG /TEST','if errorlevel 2 echo REJECTED>EV\\BAD.TXT']
@@ -64,7 +67,11 @@ def main():
         text=(ev/f'{log}.LOG').read_text()
         need(res in text and 'sound_owned=0 keyboard_owned=0 video_owned=0 speaker_low=0' in text,f'splash {log} {res} and clean exit')
     if a.keep:shutil.copytree(ev,a.keep,dirs_exist_ok=True)
-    shutil.rmtree(work)
     print('FAIL' if bad else 'PASS: emulated DOS diagnostics')
+    if a.keep and not bad:
+        build['native_tests']='PASS baseline diagnostics and original synthetic playlist/word fixtures'
+        build['source_head']=os.environ.get('GITHUB_SHA','local')
+        (a.keep/'BUILD.json').write_text(json.dumps(build,indent=2)+'\n')
+    shutil.rmtree(work)
     sys.exit(1 if bad else 0)
 if __name__=='__main__':main()

@@ -17,6 +17,7 @@ static void lead_output(int now,unsigned divisor,unsigned attenuation);
 #include "GFX.H"
 #include "CLOCK.H"
 #include "SFX.H"
+#include "SONGS.H"
 
 #define MAX_STATES 1024
 #define MAX_SEGS 64
@@ -37,6 +38,7 @@ static unsigned long fine_sum;
 static volatile unsigned irq_count,key_makes,key_breaks,key_repeats;
 static int reduced, owned, keyboard_owned, video_owned, no_fx, no_logo;
 static int demo_mode, tour_mode;
+static int songs_mode, song_ready;
 static unsigned long idle_since;
 static volatile unsigned char down[128], queue[32];
 static volatile unsigned queue_tick[32];
@@ -165,9 +167,10 @@ static void title_from_name(const char *name)
 }
 static int load_score(const char *name)
 {
-    FILE *f;char magic[4];unsigned version,i,k;int ok=1;
-    unsigned char extra[28];
+    FILE *f;char magic[4]={0,0,0,0};unsigned version=0,i,k;int ok=1;
+    unsigned char extra[28]={0};
     f=fopen(name,"rb");if(!f)return 0;
+    duration=states=taps=0;
     if(fread(magic,1,4,f)!=4)ok=0;
     if(fread(&version,2,1,f)!=1 ||
         !((version==4 && !memcmp(magic,"RBG4",4)) ||
@@ -377,13 +380,24 @@ static int simulate(int play)
     return audio_overflow || lead_div || (reference_mode?0:(play?hits!=required_taps:misses!=required_taps));
 }
 static int exit_reason;
+/* Called only between games; mute the old track before loading the next. */
+static int song_prepare(void)
+{
+    if(!songs_mode || song_ready)return 1;
+    lead_cancel(song_time());sfx_stop();
+    if(!songs_next(load_score)) {
+        songs_mode=0;
+        if(!load_score("ORIGINAL.RBG"))return 0;
+    }
+    song_ready=1;return 1;
+}
 static int autoplays(void){return auto_mode==1 || auto_mode==3 || auto_mode==7 || auto_mode==9;}
 /* One play of the song. demo: the attract-mode autoplayer, any key leaves. */
 static int game_run(int demo)
 {
     int now,key,last=-32767,playing=1,results_t=0,off;unsigned i,l,ago;
     long nowf;unsigned long before,cost;
-    demo_mode=demo;restart();
+    demo_mode=demo;song_ready=0;restart();
     for(;;) {
         nowf=song_fine();now=fine_tick(nowf);
         lead_step(now);automatic_step(now);music_step(now);
@@ -396,7 +410,9 @@ static int game_run(int demo)
             idle_since=clk_ticks();
             if(demo) {
                 if(key==50){reduced=!reduced;continue;}
-                return key==57?A_PLAY:(key==1?A_TITLE:A_TITLE);
+                if(key==1){exit_reason=1;return A_EXIT;}
+                if(key==57){song_ready=1;return A_PLAY;}
+                return A_TITLE;
             }
             if(key==1) {
                 exit_reason=1;
@@ -444,7 +460,7 @@ static int game_run(int demo)
         }
         if(auto_mode && auto_mode<10 && now>(int)duration+10)return A_EXIT;
         if(!playing && demo && (int)clk_ticks()-results_t>100)
-            return tour_mode?A_EXIT:A_SPLASH;
+            return tour_mode?A_EXIT:(songs_mode?A_DEMO:A_SPLASH);
         frame_end();
     }
 }
@@ -459,6 +475,7 @@ static int run_show(void)
     else action=splash_run();
     for(;;) {
         if(action==A_EXIT)return action;
+        if((action==A_PLAY || action==A_DEMO) && !song_prepare())return A_EXIT;
         if(action==A_PLAY)action=game_run(0);
         else if(action==A_TITLE)action=title_run();
         else if(action==A_DEMO)action=game_run(1);
@@ -468,7 +485,7 @@ static int run_show(void)
 int main(int argc,char **argv)
 {
     union REGS r;int title_result=0;unsigned i;FILE *log;
-    const char *file="ORIGINAL.RBG";
+    const char *file="ORIGINAL.RBG";int explicit_file=0;
     for(i=1;i<(unsigned)argc;i++) {
         if(!strcmp(argv[i],"/AUTO"))auto_mode=1;
         else if(!strcmp(argv[i],"/MISS"))auto_mode=2;
@@ -495,9 +512,14 @@ int main(int argc,char **argv)
         else if(!strcmp(argv[i],"/RENDER"))clk_virtual=1;
         else if(!strcmp(argv[i],"/NOLOGO"))no_logo=1;
         else if(!strcmp(argv[i],"/NOVSYNC"))vsync_on=0;
-        else file=argv[i];
+        else {file=argv[i];explicit_file=1;}
     }
-    if(!load_score(file)){puts("Invalid bounded RBG2/RBG3/RBG4 score; no hardware changed.");return 2;}
+    /* Keep scripted timing/QA and explicit-file launches exactly reproducible. */
+    if(!explicit_file && !test_mode && (!auto_mode || auto_mode==14)) {
+        songs_reset(clk_ticks());songs_discover();
+        songs_mode=songs_next(load_score);song_ready=songs_mode;
+    }
+    if(!songs_mode && !load_score(file)){puts("Invalid bounded RBG2/RBG3/RBG4 score; no hardware changed.");return 2;}
     if(test_mode==1)return selftest();
     if(test_mode>=2)return simulate(test_mode==2);
     gfx_init();lanes_init();

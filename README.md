@@ -7,7 +7,8 @@ three-voice PSG. Notes fall down three lanes; tap **Z / X / C** as they cross th
 hit line. Required notes only sound when you hit them; the rest of the melody and
 the backing keep playing either way.
 
-This is the **v6 showcase engine**: an attract-mode splash, a title screen,
+This feature branch extends the **v6 showcase engine** with a bounded song
+catalog, shuffled demo progression and varied judgment words. It retains an attract-mode splash, a title screen,
 a kiosk demo loop, smooth-scrolling playfield, hit bursts, live PSG meters and a
 graded results card. There is no official Radio Shack sponsorship or affiliation.
 
@@ -32,7 +33,9 @@ Python is needed on the DOS machine.
 | Esc | exit to DOS | back to title | back to title |
 
 Leave the title alone for 20 seconds and the store demo starts: the game plays
-itself with a "DEMO" banner, shows its results and loops back to the splash.
+itself with a "DEMO" banner and shows its results. When `SONGS` contains
+usable charts, the demo loads the next shuffled song after the results interval.
+With only `ORIGINAL.RBG`, it retains the original splash loop.
 Space jumps from the demo straight into a real game.
 
 **Calm mode** stops all background motion (tunnel pulses, star streaks, title
@@ -63,7 +66,10 @@ Use Python 3 (standard library only) on a modern computer:
 python tools/import_score.py your-song.mml MYSONG.RBG --lead 1 --difficulty easy --title "My Song"
 ```
 
-Copy the RBG beside the DOS executable and run `RSRAVE MYSONG.RBG`. The
+Copy your own or licensed RBG files into `SONGS` beside the executable. `PLAY`
+uses a shuffled bag; two or more usable tracks do not immediately repeat across
+cycles. `RSRAVE /DEMO` starts automatic shuffled demos. `PLAY MYSONG.RBG` or
+`RSRAVE MYSONG.RBG` keeps a fixed file. The
 converter writes a deterministic report JSON and normalized event JSON too.
 
 The v6 format is **RBG4**: RBG3 plus a 24-character title, the difficulty and
@@ -164,10 +170,64 @@ game writes nothing, so it runs from a write-protected floppy.
 
 ## Status
 
-v6 passes the host checks and the emulated DOS diagnostics above. It has **not**
+The tested local candidate passes host and original synthetic native fixture
+checks, including catalog discovery, invalid/disappeared files, shuffle, fallback,
+explicit launch, demo advance, word bounds and video/IRQ1/sound cleanup. It has **not**
 been rebuilt with MSC6 or run on a physical Tandy yet; see `QUALIFICATION.json`.
 DOSBox cycle settings are not calibrated hardware timing. The v5 native evidence
 in `evidence/NATIVE` remains the reference for audio and judgment behavior.
 
 Game/converter: GPL version 3, `LICENSE` and `NOTICE.TXT`. Original music has a
 separate permissive grant in `music/LICENSE.TXT`. Keep source and notices with forks.
+
+## Playlist and feedback update
+
+Discovery reads only directory metadata: at most 64 candidate 8.3 filenames and
+1024 directory matches. A selected file receives full RBG2/3/4 validation before
+playback. Invalid or disappeared candidates are disabled; empty/all-invalid
+catalogs fall back to `ORIGINAL.RBG`. If that also fails, hardware is untouched.
+Files beyond the candidate limit require explicit selection or a smaller folder.
+Space starts real play on the current demo song; R retries current real play.
+Escape during demo exits to DOS; Escape during real play returns to the title.
+Explicit filenames and scripted diagnostics bypass discovery. Normal play writes
+no logs and performs no SHA checks.
+
+Great judgments rotate RAD!, SWEET!, STELLAR!, NAILED!, RIGHTON! and WICKED!;
+misses rotate OOPS!, WHIFF!, WHOOPS! and AGAIN!. NICE! is unchanged. Timing,
+scoring, original Claude font/color/shadow/pop placement and gameplay randomness
+are unchanged. Precomputed sprite cache uses 12,525 of 14,336 bytes.
+
+![Synthetic hit fixture](evidence/PLAYLIST/hit.png)
+![Synthetic miss fixture](evidence/PLAYLIST/miss.png)
+
+These are local native captures of original synthetic LONG charts, not imported
+music. Local DOSBox-X 2025.12.01 raised a host shutdown exception after the guest
+suite wrote its passing cleanup records; the cause remains unresolved. Host and
+guest results are recorded separately. No physical Tandy timing/listening claim.
+
+## Optional metrical converter policy
+
+`python tools/import_score.py your-original.mml MYSONG.RBG --chart-policy metrical --difficulty normal`
+
+The optional offline policy prefers source quarter/eighth onsets within the
+elapsed-time density limit. It never shifts an onset or deletes a sounding note;
+thinned notes remain automatic. Easy/normal required tones must survive the
+three-tick late window, and same-lane required windows are separated by seven
+BIOS ticks so one delayed input cannot steal the next required note. Unknown or
+unrepresentable syntax still fails explicitly. Existing RBG files are not rewritten.
+The default `elapsed` policy remains available; `full` keeps its documented risk
+for dense/short notes.
+
+Backing untied-note articulation/envelopes, a song noise/drum format and RMS VU
+are **not implemented**. Meters show programmed PSG levels. Four-quarter visual
+accents do not encode every source meter. No private song PDF/MML/MIDI/audio or
+chart catalog is published here; only original demo and synthetic fixtures.
+
+## Reproducible CI toolchain
+
+The workflow uses the official OpenWatcom release tag `2026-10-01-Build`, not the
+rolling `Current-build` asset. The downloaded archive was independently verified:
+SHA-256 `e6aa1b1e40ac8bbf97658d2c70fff8a4242d6ca4a1c60806f2baa5317083d4fe`.
+CI still verifies that hash and requires its fresh DOS binary to match the pinned
+runtime before diagnostics. Build/evidence artifacts identify the exact source
+head and executable hash. Native playlist CI uses original short fixtures only.

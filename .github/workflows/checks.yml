@@ -25,8 +25,8 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq dosbox-x
       - name: Install OpenWatcom 2
         run: |
-          curl --fail --location -o ow.tar.xz https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.xz
-          echo '91bb65c60dc82d68b12a9d7f3d49397d694095497f46d931b09a8af64dc511f4  ow.tar.xz' | sha256sum --check
+          curl --fail --location -o ow.tar.xz https://github.com/open-watcom/open-watcom-v2/releases/download/2026-10-01-Build/ow-snapshot.tar.xz
+          echo 'e6aa1b1e40ac8bbf97658d2c70fff8a4242d6ca4a1c60806f2baa5317083d4fe  ow.tar.xz' | sha256sum --check
           mkdir -p "$RUNNER_TEMP/ow" && tar xJf ow.tar.xz -C "$RUNNER_TEMP/ow"
       - name: Emulated DOS diagnostics
         run: WATCOM="$RUNNER_TEMP/ow" python3 -B tests/dos_smoke.py --keep build/qualified

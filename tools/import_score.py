@@ -3,6 +3,7 @@ import argparse,hashlib,json,struct
 from fractions import Fraction as F
 from pathlib import Path
 from mml import parse,ScoreError,rounded,CLOCK,PITCH
+from chart_policy import select_required,separate_lane_windows
 
 DIFFICULTIES={'easy':500,'normal':280,'hard':200,'full':0}
 DIFFICULTY_CODE={'easy':0,'normal':1,'hard':2,'full':3}
@@ -46,7 +47,7 @@ def ranking(ns,index):
     return (len(notes),median,-index)
 
 def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='normal',gap_ms=None,
-            octave=4,length=4,tempo=120,volume=100,transpose=0,voice_transpose=None,title=''):
+            octave=4,length=4,tempo=120,volume=100,transpose=0,voice_transpose=None,title='',chart_policy='elapsed'):
     """Return exact byte artifacts; does not touch network or filesystem."""
     if difficulty not in DIFFICULTIES:raise ScoreError('difficulty must be easy/normal/hard/full')
     if gap_ms is None:gap_ms=DIFFICULTIES[difficulty]
@@ -95,8 +96,14 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
             input_range=[min(pitches),max(pitches)] if pitches else None,
             output_range=[min(pitches)+shift,max(pitches)+shift] if pitches else None))
     source_lead=audible(transformed[lead_index]);chosen=[];dropped=[];last=None;required=0
+    if chart_policy not in ('metrical','elapsed'):raise ScoreError('chart_policy must be metrical or elapsed')
+    eligible=[rounded(n['end']*CLOCK)-rounded(n['start']*CLOCK)>3 for n in source_lead] if difficulty in ('easy','normal') else None
+    selected_required=select_required(source_lead,tempo_map,gap_ms,eligible) if chart_policy=='metrical' else None
+    if selected_required is not None and difficulty in ('easy','normal'):
+        selected_required=separate_lane_windows(source_lead,selected_required,tempo_map,CLOCK,rounded)
+    if selected_required is not None and not selected_required:raise ScoreError('no lead onset survives the easy/normal audible late-window requirement; choose another lead, slower tempo, or explicit hard/full')
     for index,n in enumerate(source_lead):
-        automatic=last is not None and n['start']-last<F(gap_ms,1000)
+        automatic=(index not in selected_required) if selected_required is not None else (last is not None and n['start']-last<F(gap_ms,1000))
         if automatic:
             dropped.append(dict(onset=index,start=rational(n['start']),reason='not a required input; retained automatic lead'))
         tick,off=rounded(n['start']*CLOCK),rounded(n['end']*CLOCK)
@@ -140,6 +147,10 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
     settings=dict(title=title,lead=lead,lead_policy=lead_policy,parts=parts,difficulty=difficulty,gap_ms=gap_ms,octave=octave,
         length=length,tempo=tempo,volume=volume,transpose=transpose,
         voice_transpose={str(k):v for k,v in sorted(voice_transpose.items())})
+    if chart_policy!='elapsed':
+        settings.update(chart_policy=chart_policy,audible_late_window_ticks=3,
+            minimum_same_lane_required_spacing_ticks=7 if difficulty in ('easy','normal') else 0,
+            minimum_required_duration_ticks=4 if difficulty in ('easy','normal') else 1)
     report=dict(schema='deterministic-rbg4-v4',title=title,
         beat_grid=dict(segments=len(segments),beats=sum(c for *_,c in segments),units='16.16 BIOS ticks; integer quarter-note beats'),source_sha256=hashlib.sha256(text.encode('ascii')).hexdigest(),
         score_sha256=hashlib.sha256(blob).hexdigest(),settings=settings,
@@ -162,6 +173,7 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('source',type=Path);p.add_argument('output',type=Path)
+    p.add_argument('--chart-policy',choices=('metrical','elapsed'),default='elapsed')
     p.add_argument('--lead',default='auto');p.add_argument('--parts',help='1-based comma voices, lead plus up to two backing')
     p.add_argument('--lead-policy',choices=('activity','melody'),default='activity')
     p.add_argument('--difficulty',choices=DIFFICULTIES,default='normal');p.add_argument('--gap-ms',type=int)
