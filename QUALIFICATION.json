@@ -1,7 +1,7 @@
 {
-  "status": "PREVIEW",
+  "status": "EMULATOR_QUALIFIED_EXPERIMENTAL",
   "engine": "v6 showcase",
-  "runtime_sha256": "af8834439495a8bde5929fef6e9bd1cc1801ef82d37f9b3a4f0bf7faf5c3af47",
+  "runtime_sha256": "1800ff65f4b1d3bbeded4eb8801f28f48c28a51edd5be2833b29d4d0aa2c4010",
   "runtime_toolchain": "OpenWatcom 2 snapshot, wcl -bt=dos -ms -0 -ox (tools/build_ow.sh)",
   "original_score": "RBG4 with title and beat grid",
   "original_score_sha256": "29c5e1aaf23db343e791ab3555c0a43193d45026890a73314bac95dd4dfbe230",
@@ -46,7 +46,7 @@
     ],
     "keyboard_path": "AUTOTYPE through IRQ1: splash Space, lane keys, Escape to title, Escape to DOS"
   },
-  "performance_note": "At fixed 450 cycles (rough EX estimate, not calibrated) the original song autoplays at about 19 frames per second versus about 14 for v5 at the same setting.",
+  "performance_note": "DOSBox cycle settings are not calibrated hardware timing. No physical 4.77 MHz performance claim is made.",
   "pending": [
     "exact MSC6 rebuild with BUILD.BAT",
     "tests\\NATIVE.BAT on the MSC6 build",
@@ -60,5 +60,29 @@
   },
   "public_branding": "Original code-drawn splash and title; optional user LOGO.BIN is never bundled",
   "PIT0": "read only (counter latch); never reprogrammed",
-  "ci_scope": "Host checks on every push; emulated DOS diagnostics job builds with OpenWatcom and runs DOSBox-X"
+  "ci_scope": "Host checks on every push; emulated DOS diagnostics job builds with OpenWatcom and runs DOSBox-X",
+  "ci_evidence": {
+    "commit": "e1d4ff5b692d9612bd81ee63b88ff7fc9270651b",
+    "run": "https://github.com/astrobleem/radio-shack-rave/actions/runs/37880740554",
+    "result": "PASS",
+    "exact_ci_binary_equals_bundled": true
+  },
+  "private_compatibility": {
+    "result": "PASS",
+    "native_simulation_cases": 33,
+    "preserved_legacy_RBG3_songs": 6,
+    "additional_RBG2_score": 1,
+    "new_RBG4_arrangements": 4,
+    "legacy_live_trace_identity": true,
+    "cleanup": "PASS",
+    "preserved_library_files": 189,
+    "library_unchanged": true,
+    "lease_released_utc": "2026-10-09T03:56:07.5191656Z",
+    "private_media_in_release": false
+  },
+  "memory": {
+    "MZ_maxalloc_paragraphs": 4096,
+    "maximum_image_plus_allocation_bytes": 119616,
+    "note": "Excludes PSP and environment; emulator verification is not physical hardware measurement."
+  }
 }

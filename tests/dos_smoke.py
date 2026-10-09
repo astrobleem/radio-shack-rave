@@ -26,6 +26,7 @@ def main():
     p.add_argument('--keep',type=Path);a=p.parse_args()
     work=Path(tempfile.mkdtemp(prefix='rave-dos-'))
     subprocess.run([str(root/'tools/build_ow.sh'),str(work/'RSRAVE.EXE')],check=True,capture_output=True)
+    assert (work/'RSRAVE.EXE').read_bytes()==(root/'runtime/RSRAVE.EXE').read_bytes(), 'Fresh CI binary differs from pinned runtime'
     if a.keep:
         a.keep.mkdir(parents=True,exist_ok=True)
         shutil.copy(work/'RSRAVE.EXE',a.keep/'RSRAVE.EXE')
