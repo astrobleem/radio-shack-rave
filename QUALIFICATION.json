@@ -1,45 +1,88 @@
 {
-  "status": "PASS",
-  "engine": "latest v5 exact rebuild",
-  "runtime_sha256": "ea437b599bda7a1ffb33a569b9cc18a0ffb708b2e4c5de18dbfb793230ac2366",
-  "original_score_sha256": "113a4e5ebc29ab46821b93e6405656927778814b3f19cbe5fa478032f5fda8d7",
-  "native_lease": {
-    "released_utc": "2026-10-08T20:18:56.1574561Z",
-    "acquired_utc": "2026-10-08T20:15:22.7806184Z"
-  },
+  "status": "EMULATOR_QUALIFIED_EXPERIMENTAL",
+  "engine": "v6 showcase",
+  "runtime_sha256": "1800ff65f4b1d3bbeded4eb8801f28f48c28a51edd5be2833b29d4d0aa2c4010",
+  "runtime_toolchain": "OpenWatcom 2 snapshot, wcl -bt=dos -ms -0 -ox (tools/build_ow.sh)",
+  "original_score": "RBG4 with title and beat grid",
+  "original_score_sha256": "29c5e1aaf23db343e791ab3555c0a43193d45026890a73314bac95dd4dfbe230",
   "original_seconds": 32,
   "total_lead_onsets": 128,
   "required_taps": 64,
   "automatic_lead_onsets": 64,
-  "host_unittest_methods": 12,
-  "host_actual_core": true,
-  "native_live_trace_identity": {
-    "HIT": true,
-    "CALM": true,
-    "RETRY": true
-  },
-  "native_miss_trace_identity": true,
-  "native_backing_identity": true,
-  "native_cases": [
-    "MSC6 exact rebuild",
-    "core early/late/reset/repeat/catch-up",
-    "invalid score rejected",
-    "original all-hit",
-    "original all-miss",
-    "calm",
-    "retry",
-    "input spam",
-    "active-tone Escape",
-    "plain title fallback",
-    "startup Space skip",
-    "startup Escape",
-    "startup calm toggle"
+  "host_checks": [
+    "pinned files",
+    "include closure",
+    "strict C89 lint of the DOS game",
+    "converter and retention unit tests",
+    "actual judgment core on original all-hit/reference/miss"
   ],
-  "native_environment": "DOSBox-X Tandy / 8086_prefetch / fixed12000cycles; not physical clock calibration",
-  "physical_v5": false,
-  "previous_physical_acceptance": "User reported an earlier Rave build worked on physical Tandy; this does not qualify v5",
-  "public_branding": "Tested plain title fallback; supplied logo pixels and bitmap assets omitted",
-  "memory_paragraph_rounded_max_bytes": 90416,
-  "PSP_environment_excluded": true,
-  "ci_scope": "Host converter/golden score and actual C judgment core, not DOS hardware or listening"
+  "emulated_dos": {
+    "environment": "DOSBox-X 2024.03.01 machine=tandy, 8086_prefetch, fixed 12000 cycles, headless",
+    "script": "tests/dos_smoke.py",
+    "result": "PASS",
+    "trace_identity_with_v5_native": [
+      "HIT",
+      "MISS",
+      "CALM",
+      "RETRY",
+      "SPAM",
+      "SIMH",
+      "SIMM",
+      "SIMR"
+    ],
+    "cases": [
+      "core self-test incl. late window",
+      "invalid score rejected",
+      "all-hit",
+      "all-miss",
+      "calm",
+      "retry",
+      "input spam",
+      "active-tone Escape",
+      "splash fallback to title",
+      "splash Space",
+      "splash Escape",
+      "splash calm"
+    ],
+    "keyboard_path": "AUTOTYPE through IRQ1: splash Space, lane keys, Escape to title, Escape to DOS"
+  },
+  "performance_note": "DOSBox cycle settings are not calibrated hardware timing. No physical 4.77 MHz performance claim is made.",
+  "pending": [
+    "exact MSC6 rebuild with BUILD.BAT",
+    "tests\\NATIVE.BAT on the MSC6 build",
+    "physical Tandy 1000 EX play and listening",
+    "human timing feel"
+  ],
+  "previous_release": {
+    "engine": "v5",
+    "runtime_sha256": "ea437b599bda7a1ffb33a569b9cc18a0ffb708b2e4c5de18dbfb793230ac2366",
+    "native_evidence": "evidence/NATIVE (MSC6 exact rebuild, DOSBox-X Tandy)"
+  },
+  "public_branding": "Original code-drawn splash and title; optional user LOGO.BIN is never bundled",
+  "PIT0": "read only (counter latch); never reprogrammed",
+  "ci_scope": "Host checks on every push; emulated DOS diagnostics job builds with OpenWatcom and runs DOSBox-X",
+  "ci_evidence": {
+    "commit": "e1d4ff5b692d9612bd81ee63b88ff7fc9270651b",
+    "run": "https://github.com/astrobleem/radio-shack-rave/actions/runs/37880740554",
+    "result": "PASS",
+    "exact_ci_binary_equals_bundled": true
+  },
+  "private_compatibility": {
+    "result": "PASS",
+    "native_simulation_cases": 33,
+    "preserved_legacy_RBG3_songs": 6,
+    "additional_RBG2_score": 1,
+    "new_RBG4_arrangements": 4,
+    "legacy_live_trace_identity": true,
+    "cleanup": "PASS",
+    "preserved_library_files": 189,
+    "library_unchanged": true,
+    "lease_released_utc": "2026-10-09T03:56:07.5191656Z",
+    "private_media_in_release": false
+  },
+  "memory": {
+    "MZ_maxalloc_paragraphs": 4096,
+    "maximum_image_plus_allocation_bytes": 119616,
+    "note": "Excludes PSP and environment; emulator verification is not physical hardware measurement."
+  }
 }

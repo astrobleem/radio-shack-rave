@@ -12,5 +12,3 @@ static int splash_header(const unsigned char *h)
         w>=2 && w<=320 && !(w&1) && height>=1 && height<=200 &&
         x<=320-w && !(x&1) && y<=200-height;
 }
-static unsigned long splash_age(unsigned long now,unsigned long start)
-{ return now>=start?now-start:now+0x1800b0UL-start; }

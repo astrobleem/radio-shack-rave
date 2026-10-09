@@ -13,8 +13,8 @@ FIXTURES={
 }
 def unpack(b):
  magic,v,end,ns,nt=struct.unpack_from('<4sHHHH',b)
- assert (magic,v)==(b'RBG3',3)
- return end,b[12:12+ns*12],[struct.unpack_from('<3H4B',b,12+ns*12+i*10) for i in range(nt)]
+ assert (magic,v)==(b'RBG4',4)
+ return end,b[40:40+ns*12],[struct.unpack_from('<3H4B',b,40+ns*12+i*10) for i in range(nt)]
 def run(b,mode):
  with tempfile.TemporaryDirectory() as tmp:
   p=Path(tmp)/'TEST.RBG';p.write_bytes(b)
@@ -58,4 +58,13 @@ class Retention(unittest.TestCase):
  def test_bounds_do_not_silently_drop_notes(self):
   with self.assertRaisesRegex(ScoreError,'total lead events'):
    convert('t120o4l8'+'c'*513,difficulty='easy')
+ def test_beat_grid_follows_tempo_changes(self):
+  b=convert(FIXTURES['changing_tempo'],lead=1)[0]
+  end,ns,nt=struct.unpack_from('<HHH',b,6);segs=struct.unpack_from('<H',b,12)[0]
+  base=40+ns*12+nt*10;self.assertEqual(len(b),base+segs*12)
+  rows=[struct.unpack_from('<LLHH',b,base+i*12) for i in range(segs)]
+  # Beats 0,1,2 are evenly spaced at 120 BPM; the 90 BPM spacing first shows at beat 3.
+  self.assertEqual([(r[2],r[3]) for r in rows],[(0,3),(3,1)])
+  self.assertAlmostEqual(rows[0][1]/65536,1193182/65536/2,places=3)
+  self.assertAlmostEqual((rows[1][0]-rows[0][0])/65536,1193182/65536*(1+60/90),places=3)
 if __name__=='__main__':unittest.main()

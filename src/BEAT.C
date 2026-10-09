@@ -1,34 +1,43 @@
-/* Radio Shack Rave: small-model MSC6 /G0, real-mode 8088 DOS. */
+/* Radio Shack Rave v6: small-model C89 for MSC6 /G0 /AS, real-mode 8088 DOS.
+ * One translation unit; the headers below hold static code in layers:
+ * FX/CORE (judgment, host tested), SPLASH (bitmap format), GFX (drawing),
+ * CLOCK (fine time), SFX (PSG), PLAY (playfield), SHOW (splash/title).
+ */
 #include <dos.h>
 #include <conio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 #include "DOSSND.H"
 static void lead_output(int now,unsigned divisor,unsigned attenuation);
 #include "FX.H"
 #include "CORE.H"
 #include "SPLASH.H"
+#include "GFX.H"
+#include "CLOCK.H"
+#include "SFX.H"
 
 #define MAX_STATES 1024
-#define RINGS 4
+#define MAX_SEGS 64
 typedef struct {
     unsigned tick, divisor[3];
     unsigned char attenuation[3], reserved;
 } State;
+typedef struct { unsigned long start,period;unsigned first,count; } Seg;
 static State music[MAX_STATES];
-static unsigned states, duration, next_state, prev_div[3], prev_att[3];
+static Seg segs[MAX_SEGS];
+static unsigned states, duration, next_state, prev_div[3], prev_att[3], nsegs;
+static unsigned difficulty=255;
+static char song_title[26];
 static unsigned old_mode, frames, late_frames, worst_ticks;
-static unsigned writes, worst_writes, ring_phase, old_ring[RINGS];
-static unsigned no_fx,fx_updates,fx_deferred,fx_max_writes,fx_word_max;
-static unsigned fx_slow_frames;
-static unsigned fx_old_mode;
-static int fx_old_star[8][2];
-static unsigned music_updates, restart_count, last_music_tick;
-static unsigned worst_pit_counts,max_input_wait;
+static unsigned worst_fine, music_updates, restart_count, last_music_tick;
+static unsigned max_input_wait;
+static unsigned long fine_sum;
 static volatile unsigned irq_count,key_makes,key_breaks,key_repeats;
-static unsigned char far *video=(unsigned char far *)0xb8000000UL;
-static int old_y[MAX_NOTES], reduced, owned, keyboard_owned, video_owned;
+static int reduced, owned, keyboard_owned, video_owned, no_fx, no_logo;
+static int demo_mode, tour_mode;
+static unsigned long idle_since;
 static volatile unsigned char down[128], queue[32];
 static volatile unsigned queue_tick[32];
 static volatile unsigned qread, qwrite, overflow;
@@ -51,11 +60,11 @@ static void lead_output(int now,unsigned divisor,unsigned attenuation)
     } else audio_overflow++;
     if(!owned)return;
     /* Genuine channel-A gate/period writes: no automatic lead is mixed in. */
-    DosSoundPsgByte(0x9f);
+    psg(0x9f);
     if(divisor) {
-        DosSoundPsgByte(0x80+(divisor&15));
-        DosSoundPsgByte(divisor>>4);
-        DosSoundPsgByte(0x90+attenuation);
+        psg(0x80+(divisor&15));
+        psg(divisor>>4);
+        psg(0x90+attenuation);
     }
 }
 static void trace_save(const char *name)
@@ -69,36 +78,21 @@ static void trace_save(const char *name)
         back_trace[i].d2,back_trace[i].a2);
     fclose(f);
 }
-static unsigned long elapsed(void)
+/* Song time in 1/256 ticks; whole ticks are its floor. The ready period is
+   36 ticks before zero. */
+static long song_fine(void)
 {
-    unsigned flags;unsigned long ticks;
-    _asm pushf
-    _asm pop flags
-    _asm cli
-    ticks=*(unsigned long far *)0x0040006cUL;
-    _asm push flags
-    _asm popf
-    /* Preserve BIOS midnight flag; INT1A/00 would clear it repeatedly. */
-    return ticks;
+    unsigned long age=clk_fine()-origin;
+    if(age>30000UL*256)age=30000UL*256;
+    return (long)age-36L*256;
 }
-static unsigned pit_count(void)
+static int fine_tick(long f)
 {
-    unsigned lo,hi,flags;
-    _asm pushf
-    _asm pop flags
-    _asm cli
-    /* Counter latch only: mode, divisor and IRQ cadence remain unchanged. */
-    outp(0x43,0);lo=inp(0x40);hi=inp(0x40);
-    _asm push flags
-    _asm popf
-    return lo|(hi<<8);
+    return f>=0?(int)(f>>8):-(int)((255-f)>>8);
 }
 static int song_time(void)
 {
-    unsigned long now=elapsed(), age;
-    age=now>=origin?now-origin:now+0x1800b0UL-origin;
-    if(age>30000UL)age=30000UL;
-    return (int)age-36;
+    return fine_tick(song_fine());
 }
 static void key_event(unsigned scan)
 {
@@ -130,13 +124,16 @@ static void key_install(void)
     old_keyboard=_dos_getvect(9);_dos_setvect(9,keyboard);
     keyboard_owned=1;
 }
-static unsigned key_take(void)
+/* Next queued key press, with how many ticks ago it was pressed. */
+static unsigned key_take(unsigned *ago)
 {
     unsigned key,wait;
     if(qread==qwrite)return 0;
     key=queue[qread];
     wait=*(unsigned far *)0x0040006cUL-queue_tick[qread];
+    if(wait>36)wait=0;
     if(wait>max_input_wait)max_input_wait=wait;
+    if(ago)*ago=clk_virtual?0:wait;
     qread=(qread+1)&31;return key;
 }
 static void mode(unsigned m)
@@ -149,21 +146,49 @@ static void cleanup(void)
     if(keyboard_owned){_dos_setvect(9,old_keyboard);keyboard_owned=0;}
     if(owned){DosSoundRelease();owned=0;}
     if(video_owned){mode(old_mode);video_owned=0;}
+    if(psg_log){fclose(psg_log);psg_log=0;}
+}
+static int title_char(int c)
+{
+    return (c>='A' && c<='Z') || (c>='0' && c<='9') || (c && strchr(" !?'.,-:&/+",c)!=0);
+}
+static void title_from_name(const char *name)
+{
+    const char *p=name,*q;unsigned n=0;
+    for(q=name;*q;q++)if(*q=='\\' || *q=='/' || *q==':')p=q+1;
+    for(;*p && *p!='.' && n<24;p++) {
+        song_title[n]=(char)((*p>='a' && *p<='z')?*p-32:*p);
+        if(!title_char(song_title[n]))song_title[n]=' ';
+        n++;
+    }
+    song_title[n]=0;
 }
 static int load_score(const char *name)
 {
     FILE *f;char magic[4];unsigned version,i,k;int ok=1;
+    unsigned char extra[28];
     f=fopen(name,"rb");if(!f)return 0;
     if(fread(magic,1,4,f)!=4)ok=0;
     if(fread(&version,2,1,f)!=1 ||
-        !((version==3 && !memcmp(magic,"RBG3",4)) ||
+        !((version==4 && !memcmp(magic,"RBG4",4)) ||
+          (version==3 && !memcmp(magic,"RBG3",4)) ||
           (version==2 && !memcmp(magic,"RBG2",4))))ok=0;
     if(fread(&duration,2,1,f)!=1 || !duration || duration>10924)ok=0;
     if(fread(&states,2,1,f)!=1 || states<2 || states>MAX_STATES)ok=0;
     if(fread(&taps,2,1,f)!=1 || !taps || taps>MAX_NOTES)ok=0;
+    nsegs=0;difficulty=255;title_from_name(name);
+    if(ok && version==4) {
+        if(fread(extra,1,28,f)!=28)ok=0;
+        nsegs=extra[0]|(extra[1]<<8);difficulty=extra[2];
+        if(nsegs>MAX_SEGS || (difficulty>3 && difficulty!=255) || extra[3])ok=0;
+        for(i=0;i<24 && extra[4+i];i++)if(!title_char(extra[4+i]))ok=0;
+        for(k=i;k<24;k++)if(extra[4+k])ok=0;
+        if(ok){memcpy(song_title,extra+4,i);song_title[i]=0;}
+    }
     if(!ok){fclose(f);return 0;}
     if(fread(music,sizeof(State),states,f)!=states)ok=0;
     if(fread(chart,sizeof(Tap),taps,f)!=taps)ok=0;
+    if(nsegs && fread(segs,sizeof(Seg),nsegs,f)!=nsegs)ok=0;
     if(fgetc(f)!=EOF)ok=0;
     fclose(f);
     for(i=0;i<states;i++) {
@@ -182,7 +207,7 @@ static int load_score(const char *name)
     required_taps=0;
     for(i=0;i<taps;i++) {
         if(chart[i].tick>=duration || chart[i].lane>2 ||
-           chart[i].reserved>(version==3?1:0))ok=0;
+           chart[i].reserved>(unsigned char)(version>=3?1:0))ok=0;
         if(!chart[i].reserved)required_taps++;
         if(chart[i].end_tick<=chart[i].tick || chart[i].end_tick>duration ||
            !chart[i].divisor || chart[i].divisor>1023 ||
@@ -190,6 +215,13 @@ static int load_score(const char *name)
         if(i && chart[i].tick<=chart[i-1].tick)ok=0;
         if(i && chart[i].tick<chart[i-1].end_tick)ok=0;
     }
+    for(i=0;i<nsegs;i++) {
+        if(!segs[i].count || (segs[i].count>1 && !segs[i].period) ||
+           (segs[i].start>>16)>=duration)ok=0;
+        if(i && (segs[i].start<=segs[i-1].start ||
+           segs[i].first!=segs[i-1].first+segs[i-1].count))ok=0;
+    }
+    if(nsegs && segs[0].first)ok=0;
     if(!required_taps)ok=0;
     return ok;
 }
@@ -204,10 +236,10 @@ static void music_step(int now)
     for(k=1;k<3;k++) {
         d=music[chosen].divisor[k];a=music[chosen].attenuation[k];
         if(d!=prev_div[k] && d) {
-            DosSoundPsgByte(0x80+(k<<5)+(d&15));
-            DosSoundPsgByte(d>>4);
+            psg(0x80+(k<<5)+(d&15));
+            psg(d>>4);
         }
-        if(a!=prev_att[k])DosSoundPsgByte(0x90+(k<<5)+a);
+        if(a!=prev_att[k])psg(0x90+(k<<5)+a);
         prev_div[k]=d;prev_att[k]=a;
     }
     last_music_tick=music[chosen].tick;
@@ -223,250 +255,12 @@ static void music_step(int now)
         music[chosen].divisor[k]*16UL+music[chosen].attenuation[k];
     next_state=chosen+1;music_updates++;
 }
-static void pixel(int x,int y,unsigned color)
-{
-    unsigned pos;unsigned char v;
-    if(x<0 || x>319 || y<0 || y>199)return;
-    pos=(y&3)*8192+(y>>2)*160+(x>>1);v=video[pos];
-    video[pos]=(unsigned char)((x&1)?(v&240)|color:(v&15)|(color<<4));
-    writes++;
-}
-static void rect(int x,int y,int w,int h,unsigned color)
-{
-    int yy,xx;unsigned pos;unsigned char packed;
-    if(x<0 || x+w>320 || y<0 || y+h>200)return;
-    packed=(unsigned char)(color|(color<<4));
-    for(yy=y;yy<y+h;yy++) {
-        pos=(yy&3)*8192+(yy>>2)*160+(x>>1);
-        for(xx=0;xx<w/2;xx++){video[pos++]=packed;writes++;}
-    }
-}
-static void box(int x,int y,int w,int h,unsigned color)
-{
-    int yy;unsigned pos,right;unsigned char high;
-    /* Every caller has even x/width. Pack horizontal edges two pixels per
-       byte; calculate each vertical row address once, without pixel calls. */
-    rect(x,y,w,1,color);rect(x,y+h-1,w,1,color);
-    right=(w>>1)-1;high=(unsigned char)(color<<4);
-    for(yy=y+1;yy<y+h-1;yy++) {
-        pos=(yy&3)*8192+(yy>>2)*160+(x>>1);
-        video[pos]=(unsigned char)((video[pos]&15)|high);
-        video[pos+right]=(unsigned char)((video[pos+right]&240)|color);
-        writes+=2;
-    }
-}
-/* 3x5 glyphs, left-to-right rows, digits then uppercase letters. */
-static const unsigned char font[36][5]={
- {7,5,5,5,7},{2,6,2,2,7},{7,1,7,4,7},{7,1,7,1,7},
- {5,5,7,1,1},{7,4,7,1,7},{7,4,7,5,7},{7,1,1,1,1},
- {7,5,7,5,7},{7,5,7,1,7},{2,5,7,5,5},{6,5,6,5,6},
- {7,4,4,4,7},{6,5,5,5,6},{7,4,6,4,7},{7,4,6,4,4},
- {7,4,5,5,7},{5,5,7,5,5},{7,2,2,2,7},{1,1,1,5,7},
- {5,5,6,5,5},{4,4,4,4,7},{5,7,7,5,5},{5,7,7,7,5},
- {7,5,5,5,7},{7,5,7,4,4},{7,5,5,7,1},{6,5,6,5,5},
- {7,4,7,1,7},{7,2,2,2,2},{5,5,5,5,7},{5,5,5,5,2},
- {5,5,7,7,5},{5,5,2,5,5},{5,5,2,2,2},{7,1,2,4,7}
-};
-static void text(int x,int y,const char *s,unsigned color)
-{
-    int ix,row,col;unsigned bits;
-    while(*s) {
-        ix=*s>='0'&&*s<='9'?*s-'0':
-            (*s>='A'&&*s<='Z'?*s-'A'+10:-1);
-        if(ix>=0)for(row=0;row<5;row++) {
-            bits=font[ix][row];
-            for(col=0;col<3;col++)if(bits&(4>>col))pixel(x+col,y+row,color);
-        }
-        if(*s=='\'')pixel(x+1,y,color);
-        if(*s=='.')pixel(x+1,y+4,color);
-        if(*s=='!'){pixel(x+1,y,color);pixel(x+1,y+1,color);
-            pixel(x+1,y+2,color);pixel(x+1,y+4,color);}
-        x+=5;s++;
-    }
-}
-static void text2(int x,int y,const char *s,unsigned color)
-{
-    int ix,row,col;unsigned bits;
-    while(*s) {
-        ix=*s>='A'&&*s<='Z'?*s-'A'+10:-1;
-        if(ix>=0)for(row=0;row<5;row++) {
-            bits=font[ix][row];
-            for(col=0;col<3;col++)if(bits&(4>>col))
-                rect(x+col*2,y+row*2,2,2,color);
-        }
-        if(*s=='!'){rect(x+2,y,2,6,color);rect(x+2,y+8,2,2,color);}
-        x+=10;s++;
-    }
-}
-static void side_shape(unsigned kind,unsigned r,unsigned color)
-{
-    int dx,dy;
-    if(kind==1)for(dx=-(int)r;dx<=(int)r;dx++) {
-        dy=(int)r-(dx<0?-dx:dx);
-        pixel(52+dx,100-dy,color);pixel(52+dx,100+dy,color);
-    }
-    else if(kind==2)box(52-r,100-r/2,r*2,r,color);
-    else box(52-r,100-r,r*2,r*2,color);
-}
-static int feedback(int now)
-{
-    unsigned visible,before;
-    visible=now<fx_until?fx_kind:0;
-    if(visible==fx_shown)return 0;
-    before=writes;rect(228,150,84,10,0);
-    if(visible==2)text2(232,150,"AWESOME!",11);
-    else if(visible==1)text2(250,150,"NICE!",10);
-    else if(visible==3)text2(250,150,"MISS!",6);
-    fx_shown=visible;fx_changes++;
-    if(writes-before>fx_word_max)fx_word_max=writes-before;
-    return 1;
-}
-static void sides(int now,int word_changed)
-{
-    static const unsigned sizes[8]={6,10,14,20,26,32,38,44};
-    static const unsigned char palettes[4][2]={{1,3},{3,5},{5,1},{6,3}};
-    static const signed char points[8][2]={
-        {-24,-30},{-12,-42},{12,-42},{24,-30},
-        {24,22},{12,38},{-12,38},{-24,22}};
-    unsigned phase,kind,pal,i,r,before;int x,y;
-    if(now<fx_slow_until)fx_slow_frames++;
-    phase=reduced?0:(unsigned)(now<0?0:now)>>(now<fx_slow_until?4:3);
-    if(phase==ring_phase)return;
-    if(word_changed){fx_deferred++;return;}
-    before=writes;
-    for(i=0;i<2;i++)if(old_ring[i])side_shape(fx_old_mode,old_ring[i],0);
-    for(i=0;i<8;i++)if(fx_old_star[i][0]>=0)
-        pixel(fx_old_star[i][0],fx_old_star[i][1],0);
-    kind=reduced?0:((combo>>3)+(lead_cursor>>4))%3;
-    pal=reduced?0:((combo>>3)+(lead_cursor>>5))&3;
-    for(i=0;i<2;i++) {
-        r=sizes[(phase+i*4+(reduced?0:lead_cursor&1))&7];
-        old_ring[i]=r;side_shape(kind,r,palettes[pal][i]);
-    }
-    for(i=0;i<8;i++) {
-        if(kind==1){x=270+points[i][0];y=92+points[i][1];}
-        else if(kind==2){x=238+i*10;y=55+((phase+i*3)&7)*10;}
-        else {x=270+points[i][0]/2;y=92+points[i][1];}
-        fx_old_star[i][0]=x;fx_old_star[i][1]=y;
-        pixel(x,y,palettes[pal][i&1]);
-    }
-    fx_old_mode=kind;ring_phase=phase;fx_updates++;
-    if(writes-before>fx_max_writes)fx_max_writes=writes-before;
-}
-static void scene(void)
-{
-    unsigned i;
-    mode(9);video_owned=1;
-    text(120,6,"RADIO SHACK RAVE",11);
-    for(i=0;i<3;i++)box(104+i*36,27,32,150,8);
-    rect(106,166,100,2,11);
-    text(116,182,"Z",10);text(152,182,"X",13);text(188,182,"C",14);
-    text(5,193,"ESC EXIT  R RETRY  M CALM",7);
-    for(i=0;i<taps;i++)old_y[i]=-1;
-    for(i=0;i<RINGS;i++)old_ring[i]=0;
-    for(i=0;i<8;i++)fx_old_star[i][0]=-1;
-    fx_old_mode=0;fx_shown=0;
-    ring_phase=65535;
-}
-static void visuals(int now)
-{
-    unsigned i,phase,r;int y,lane,word_changed;char hud[64];
-    static const unsigned sizes[8]={6,10,14,20,26,32,38,44};
-    static const unsigned colors[3]={10,13,14};
-    /* Dirty note rectangles, leaving lane borders intact. */
-    for(i=0;i<taps;i++)if(old_y[i]>=0) {
-        rect(110+chart[i].lane*36,old_y[i],20,4,0);old_y[i]=-1;
-    }
-    for(i=0;i<taps;i++) {
-        if((int)chart[i].tick>now+45)break;
-        if(judged[i] || chart[i].reserved)continue;
-        y=166-((int)chart[i].tick-now)*3;
-        if(y>=29 && y<=172) {
-            lane=chart[i].lane;rect(110+lane*36,y,20,4,colors[lane]);old_y[i]=y;
-        }
-    }
-    rect(106,166,100,2,11);
-    for(i=0;i<3;i++) {
-        r=now<flash_until[i]?((flash_kind[i]==1)?colors[i]:4):0;
-        rect(110+i*36,170,20,5,r);
-    }
-    /* Integer tunnel rectangles, slow phases and stable low-intensity color.
-       Reduced motion freezes tunnel and stars, notes remain playable. */
-    word_changed=0;
-    if(!no_fx){word_changed=feedback(now);sides(now,word_changed);}
-    phase=reduced?0:(unsigned)(now<0?0:now)/4;
-    if(no_fx && phase!=ring_phase) {
-        for(i=0;i<RINGS;i++)if(old_ring[i]) {
-            r=old_ring[i];box(52-r,100-r,r*2,r*2,0);
-            pixel(269+r/2,57+r,0);pixel(267-r/2,142-r,0);
-        }
-        for(i=0;i<RINGS;i++) {
-            r=sizes[(phase+i*2)&7];old_ring[i]=r;
-            box(52-r,100-r,r*2,r*2,(i&1)?3:1);
-            pixel(269+r/2,57+r,3);pixel(267-r/2,142-r,1);
-        }
-        ring_phase=phase;
-    }
-    if((frames&3)==0) {
-        rect(4,18,212,6,0);
-        sprintf(hud,"SCORE %lu  COMBO %u  BEST %u",score,combo,best);
-        text(10,18,hud,7);
-        rect(222,164,96,6,0);rect(222,174,96,6,0);
-        sprintf(hud,"HIT %u",hits);text(224,166,hud,10);
-        sprintf(hud,"MISS %u",misses);text(224,176,hud,7);
-    }
-    if(now<0){rect(222,86,96,6,0);text(230,86,"GET READY",11);}
-    else if(now<2)rect(222,86,96,6,0);
-    if(now>(int)duration+WINDOW) {
-        rect(110,81,96,28,0);text(118,85,"SONG CLEAR",11);
-        text(116,99,"R TO RETRY",7);
-    }
-}
-static void dump_frame(const char *name)
-{
-    FILE *f;unsigned y,pos,x;unsigned char row[160];
-    f=fopen(name,"wb");if(!f)return;
-    for(y=0;y<200;y++) {
-        pos=(y&3)*8192+(y>>2)*160;
-        for(x=0;x<160;x++)row[x]=video[pos+x];
-        fwrite(row,1,160,f);
-    }
-    fclose(f);
-}
-static void restart(void)
-{
-    unsigned k;
-    for(k=0;k<4;k++)DosSoundPsgByte(0x9f+(k<<5));
-    for(k=0;k<3;k++){prev_div[k]=65535;prev_att[k]=65535;}
-    next_state=0;last_music_tick=0;reset_game();scene();origin=elapsed();
-    audio_count=back_count=audio_overflow=0;backing_checksum=0;
-}
-static int plain_title(void)
-{
-    unsigned k;
-    mode(9);video_owned=1;
-    box(34,44,252,110,3);
-    text(120,65,"RADIO SHACK RAVE",11);
-    text(60,86,"YOU'VE GOT QUESTIONS.",7);
-    text(166,86,"WE'VE GOT BANGERS.",7);
-    text(95,108,"SPACE PLAY   Z X C",10);
-    text(70,126,"M REDUCED MOTION  ESC EXIT",7);
-    text(70,146,"UNCHARTED NOTES KEEP PLAYING",11);
-    text(65,171,"MISS A TAP  MISS ITS TONE",8);
-    if(auto_mode && auto_mode<10){dump_frame("TITLE.RAW");return 1;}
-    if(auto_mode>=10){dump_frame("FALLBACK.RAW");return 0;}
-    for(;;) {
-        k=key_take();
-        if(k==1)return 0;
-        if(k==57)return 1;
-        if(k==50){reduced=!reduced;text(105,140,reduced?"CALM ON ":"CALM OFF",11);}
-    }
-}
-/* Status: -2 bad/missing bitmap, -1 Escape, 0 continue, 1 Space. */
+/* User-supplied full-screen art (RSPL), shown before the splash if present.
+   Status: -2 bad/missing bitmap, -1 Escape, 0 continue, 1 Space. */
 static int splash_input(void)
 {
     unsigned k;
-    while((k=key_take())!=0) {
+    while((k=key_take(0))!=0) {
         if(k==1)return -1;
         if(k==57)return 1;
         if(k==50)reduced=!reduced;
@@ -487,51 +281,27 @@ static int splash_bitmap(const char *name)
     for(row=0;row<h;row++) {
         action=splash_input();if(action){fclose(f);return action;}
         if(fread(buffer,1,w/2,f)!=w/2){ok=0;break;}
-        pos=((y+row)&3)*8192+((y+row)>>2)*160+x/2;
+        pos=row_ofs[y+row]+x/2;
         for(i=0;i<w/2;i++)video[pos+i]=buffer[i];
     }
     if(ok && fgetc(f)!=EOF)ok=0;
     fclose(f);return ok?0:-2;
 }
-static int splash_wait(unsigned ticks)
+#include "PLAY.H"
+#include "SHOW.H"
+
+static void restart(void)
 {
-    unsigned long start=elapsed();int action;
-    do {
-        action=splash_input();if(action)return action;
-    } while(splash_age(elapsed(),start)<ticks);
-    return 0;
-}
-static int title_screen(void)
-{
-    unsigned k;int action;
-    for(k=0;k<4;k++)DosSoundPsgByte(0x9f+(k<<5));
-    if(auto_mode && auto_mode<10)return plain_title();
-    mode(9);video_owned=1;
-    if(auto_mode==11)key_event(57);
-    if(auto_mode==12)key_event(1);
-    if(auto_mode==13)key_event(50);
-    action=splash_bitmap("CARD.BIN");
-    if(action==-2)return plain_title();
-    if(action)return action>0;
-    if(auto_mode>=10)dump_frame("STAGE0.RAW");
-    action=splash_wait(SPLASH_ORIGINAL_TICKS);
-    if(action)return action>0;
-    /* Only the original word answers changes. The slogan/period stay. */
-    rect(166,100,84,18,0);text2(170,102,"BANGERS",15);
-    if(auto_mode>=10)dump_frame("STAGE1.RAW");
-    action=splash_wait(SPLASH_BANGERS_TICKS);
-    if(action)return action>0;
-    mode(9);
-    action=splash_bitmap("LOGO.BIN");
-    if(action==-2)return plain_title();
-    if(action)return action>0;
-    text2(140,153,"RAVE",11);
-    text(95,174,"SPACE PLAY   Z X C",10);
-    text(80,188,"M CALM   ESC EXIT",7);
-    if(auto_mode>=10){dump_frame("STAGE2.RAW");return 0;}
-    for(;;) {
-        action=splash_input();if(action)return action>0;
-    }
+    unsigned k;
+    sfx_stop();
+    for(k=0;k<3;k++){prev_div[k]=65535;prev_att[k]=65535;}
+    next_state=0;last_music_tick=0;reset_game();
+    vis_from=0;beat_reset(&grid_cur);beat_reset(&pulse_cur);
+    scene_draw();
+    audio_count=back_count=audio_overflow=0;backing_checksum=0;
+    origin=clk_fine();
+    stars_reset(song_fine());
+    for(k=0;k<3;k++)key_lit[k]=0;
 }
 static int selftest(void)
 {
@@ -549,9 +319,11 @@ static int selftest(void)
     reset_game();audio_count=0;
     if(!hit(1,19) || lead_until!=20)bad++;
     lead_step(20);if(lead_div)bad++;
+    /* A late hit after the tone's authored end still scores, silently. */
     reset_game();audio_count=0;
-    chart[0].end_tick=12;if(hit(0,13) || audio_count)bad++;
+    chart[0].end_tick=12;if(!hit(0,13) || audio_count || silent_hits!=1)bad++;
     chart[0].end_tick=14;
+    reset_game();audio_count=0;
     for(i=0;i<30;i++)expire(i);
     if(audio_count || misses!=3)bad++;
     reset_game();audio_count=0;
@@ -563,15 +335,21 @@ static int selftest(void)
     if(hit(2,100)||ghosts!=1)bad++;
     chart[1].tick=14;chart[1].lane=0;reset_game();
     if(!hit(0,13) || judged[0] || judged[1]!=1)bad++;
-    chart[1].tick=16;chart[1].lane=1;reset_game();
+    /* A late press after a newer automatic note took the lead. */
+    chart[1].tick=12;chart[1].lane=1;chart[1].reserved=1;chart[1].end_tick=14;
+    chart[0].end_tick=12;reset_game();audio_count=0;
+    automatic_step(12);
+    if(!hit(0,13) || judged[0]!=1 || misses || lead_owner!=1)bad++;
+    chart[0].end_tick=14;chart[1].reserved=0;
+    chart[1].tick=16;chart[1].lane=1;chart[1].end_tick=20;reset_game();
     memset((void *)down,0,sizeof(down));qread=qwrite=overflow=0;
     audio_count=0;
     for(i=0;i<1000;i++)key_event(44);
-    if(key_take()!=44)bad++;
+    if(key_take(0)!=44)bad++;
     hit(0,10);
-    if(key_take() || audio_count!=1 || lead_attacks!=1)bad++;
+    if(key_take(0) || audio_count!=1 || lead_attacks!=1)bad++;
     key_event(172);key_event(44);
-    if(key_take()!=44 || key_take())bad++;
+    if(key_take(0)!=44 || key_take(0))bad++;
     hit(0,10);if(audio_count!=1)bad++;
     for(i=1;i<100;i++)key_event(i);
     if(!overflow)bad++;
@@ -579,7 +357,7 @@ static int selftest(void)
     next_state=0;music_step(duration);
     if(next_state!=states || last_music_tick!=duration)bad++;
     taps=save;f=fopen("COREQA.TXT","w");
-    if(f){fprintf(f,"agency early/late/expired/miss/reset/nearest/repeat/catch-up: %s\n",bad?"FAIL":"PASS");fclose(f);}
+    if(f){fprintf(f,"agency early/late/expired/miss/reset/nearest/repeat/catch-up/late-window: %s\n",bad?"FAIL":"PASS");fclose(f);}
     return bad;
 }
 static int simulate(int play)
@@ -598,11 +376,98 @@ static int simulate(int play)
         hits,misses,lead_attacks,lead_releases,audio_count,audio_overflow,backing_checksum);fclose(f);}
     return audio_overflow || lead_div || (reference_mode?0:(play?hits!=required_taps:misses!=required_taps));
 }
+static int exit_reason;
+static int autoplays(void){return auto_mode==1 || auto_mode==3 || auto_mode==7 || auto_mode==9;}
+/* One play of the song. demo: the attract-mode autoplayer, any key leaves. */
+static int game_run(int demo)
+{
+    int now,key,last=-32767,playing=1,results_t=0,off;unsigned i,l,ago;
+    long nowf;unsigned long before,cost;
+    demo_mode=demo;restart();
+    for(;;) {
+        nowf=song_fine();now=fine_tick(nowf);
+        lead_step(now);automatic_step(now);music_step(now);
+        if(auto_mode==5 && now!=last) {
+            for(i=0;i<100;i++)key_event(44);
+            if((now&7)==0)key_event(172);
+        }
+        while((key=(int)key_take(&ago))!=0) {
+            now=song_time();lead_step(now);automatic_step(now);
+            idle_since=clk_ticks();
+            if(demo) {
+                if(key==50){reduced=!reduced;continue;}
+                return key==57?A_PLAY:(key==1?A_TITLE:A_TITLE);
+            }
+            if(key==1) {
+                exit_reason=1;
+                if(auto_mode)return A_EXIT;
+                return A_TITLE;
+            }
+            if(key==19){restart_count++;restart();playing=1;last=-32767;now=song_time();nowf=song_fine();continue;}
+            if(key==50){reduced=!reduced;continue;}
+            if(key==57 && !playing)return A_TITLE;
+            if(playing && key>=44 && key<=46)hit(key-44,now-(int)ago);
+        }
+        if(playing && (autoplays() || demo))for(i=live_from;i<taps;i++) {
+            if((int)chart[i].tick>now+3)break;
+            off=auto_mode==9?2:0;
+            if(demo)off=(i%13==6)?2:((i%17==9)?-2:0);
+            if(!chart[i].reserved && !judged[i] && (int)chart[i].tick<=now+off) {
+                l=chart[i].lane;hit(l,now);
+            }
+        }
+        if(auto_mode==3 && now>140 && !restart_count) {
+            restart_count++;restart();last=-32767;continue;
+        }
+        if(auto_mode==4 && now>60){exit_reason=1;return A_EXIT;}
+        if(auto_mode==7 && now>=60 && lead_div){exit_reason=1;return A_EXIT;}
+        expire(now);
+        for(l=0;l<3;l++)key_lit[l]=(unsigned char)(((!demo && !auto_mode && down[44+l]) ||
+            (flash_kind[l]==1 && now<flash_until[l]-1))?1:0);
+        if(playing && now>(int)duration+WINDOW+2) {
+            playing=0;results_step=0;results_t=(int)clk_ticks();
+        }
+        if(now!=last && last!=-32767 && now-last>1)late_frames++;
+        before=clk_fine();
+        if(playing)playfield_frame(nowf,now);
+        else results_frame((int)clk_ticks()-results_t);
+        sfx_step();
+        cost=clk_fine()-before;frame_cost=cost>65535UL?65535u:(unsigned)cost;
+        if(playing && now>=0) {
+            frames++;fine_sum+=cost;
+            if(cost>worst_fine)worst_fine=(unsigned)cost;
+            if((cost>>8)>worst_ticks)worst_ticks=(unsigned)(cost>>8);
+        }
+        last=now;
+        if(auto_mode && shot_mode && !dump_done && now>=200) {
+            dump_frame("FRAME.RAW");dump_done=1;
+        }
+        if(auto_mode && auto_mode<10 && now>(int)duration+10)return A_EXIT;
+        if(!playing && demo && (int)clk_ticks()-results_t>100)
+            return tour_mode?A_EXIT:A_SPLASH;
+        frame_end();
+    }
+}
+static int run_show(void)
+{
+    int action;
+    if(auto_mode>=1 && auto_mode<=9) {
+        title_draw();dump_frame("TITLE.RAW");
+        return game_run(0);
+    }
+    if(auto_mode==14)action=A_DEMO;
+    else action=splash_run();
+    for(;;) {
+        if(action==A_EXIT)return action;
+        if(action==A_PLAY)action=game_run(0);
+        else if(action==A_TITLE)action=title_run();
+        else if(action==A_DEMO)action=game_run(1);
+        else action=splash_run();
+    }
+}
 int main(int argc,char **argv)
 {
-    union REGS r;int now,key,last=-32767,exit_now=0,reason=0,title_result;
-    unsigned i,frame_cost,pc_before,pc_delta;
-    unsigned long before,after;FILE *log;
+    union REGS r;int title_result=0;unsigned i;FILE *log;
     const char *file="ORIGINAL.RBG";
     for(i=1;i<(unsigned)argc;i++) {
         if(!strcmp(argv[i],"/AUTO"))auto_mode=1;
@@ -625,23 +490,38 @@ int main(int argc,char **argv)
         else if(!strcmp(argv[i],"/SSKIP"))auto_mode=11;
         else if(!strcmp(argv[i],"/SESC"))auto_mode=12;
         else if(!strcmp(argv[i],"/SCALM"))auto_mode=13;
+        else if(!strcmp(argv[i],"/DEMO"))auto_mode=14;
+        else if(!strcmp(argv[i],"/TOUR")){auto_mode=15;tour_mode=1;clk_virtual=1;}
+        else if(!strcmp(argv[i],"/RENDER"))clk_virtual=1;
+        else if(!strcmp(argv[i],"/NOLOGO"))no_logo=1;
+        else if(!strcmp(argv[i],"/NOVSYNC"))vsync_on=0;
         else file=argv[i];
     }
-    if(!load_score(file)){puts("Invalid bounded RBG2/RBG3 score; no hardware changed.");return 2;}
+    if(!load_score(file)){puts("Invalid bounded RBG2/RBG3/RBG4 score; no hardware changed.");return 2;}
     if(test_mode==1)return selftest();
     if(test_mode>=2)return simulate(test_mode==2);
+    gfx_init();lanes_init();
+    cache=(unsigned char far *)_fmalloc(CACHE_BYTES);cache_used=TUN_BW*TUN_ROWS;
+    words_init();
     r.h.ah=15;int86(0x10,&r,&r);old_mode=r.h.al;
     if(DosSoundAcquire(DS_PSG)) {
         puts("Sound owner refused: requires exclusive plain Tandy DOS.");return 3;
     }
     owned=1;atexit(cleanup);key_install();
-    title_result=title_screen();
-    if(auto_mode>=10) {
+    if(clk_virtual)psg_log=fopen("PSG.LOG","w");
+    mode(9);video_owned=1;
+    psg_mute_all();
+    if(auto_mode>=10 && auto_mode<=13) {
+        if(auto_mode==11)key_event(57);
+        if(auto_mode==12)key_event(1);
+        if(auto_mode==13)key_event(50);
+        title_result=splash_run();
+        if(title_result==A_TITLE){title_draw();dump_frame("FALLBACK.RAW");}
         cleanup();r.h.ah=15;int86(0x10,&r,&r);
         log=fopen("SPLASH.LOG","w");
         if(log) {
             fprintf(log,"mode=%d result=%d calm=%d audio_events=%u\n",
-                auto_mode,title_result,reduced,audio_count);
+                auto_mode,title_result==A_PLAY,reduced,audio_count);
             fprintf(log,"restore_video=%d restore_keyboard=%d sound_owned=%d keyboard_owned=%d video_owned=%d speaker_low=%u\n",
                 (unsigned)r.h.al==old_mode,_dos_getvect(9)==old_keyboard,
                 owned,keyboard_owned,video_owned,inp(0x61)&3);
@@ -649,78 +529,42 @@ int main(int argc,char **argv)
         }
         return 0;
     }
-    if(!title_result){cleanup();return 0;}
-    restart();
-    while(!exit_now) {
-        now=song_time();lead_step(now);automatic_step(now);music_step(now);expire(now);
-        if(auto_mode==5 && now!=last) {
-            for(i=0;i<100;i++)key_event(44);
-            if((now&7)==0)key_event(172);
-        }
-        while((key=key_take())!=0) {
-            now=song_time();lead_step(now);automatic_step(now);
-            if(key==1){reason=1;exit_now=1;break;}
-            if(key==19){restart_count++;restart();last=-32767;now=song_time();}
-            if(key==50){reduced=!reduced;ring_phase=65535;}
-            if(key==44 || key==45 || key==46)hit(key-44,now);
-        }
-        if(auto_mode==1 || auto_mode==3 || auto_mode==7 || auto_mode==9)for(i=0;i<taps;i++) {
-            if(!chart[i].reserved && !judged[i] &&
-               (int)chart[i].tick==now+(auto_mode==9?2:0))hit(chart[i].lane,now);
-        }
-        if(auto_mode==3 && now>140 && !restart_count) {
-            restart_count++;restart();last=-32767;continue;
-        }
-        if(auto_mode==4 && now>60){reason=1;exit_now=1;}
-        if(auto_mode==7 && now>=60 && lead_div){reason=1;exit_now=1;}
-        if(now!=last) {
-            if(last!=-32767 && now-last>1)late_frames++;
-            if(last!=-32767 && now-last>1)fx_slow_until=now+36;
-            last=now;writes=0;before=elapsed();pc_before=pit_count();
-            visuals(now);pc_delta=pc_before-pit_count();after=elapsed();
-            if(pc_delta>worst_pit_counts)worst_pit_counts=pc_delta;
-            frame_cost=(unsigned)(after-before);
-            if(frame_cost>worst_ticks)worst_ticks=frame_cost;
-            if(frame_cost)fx_slow_until=now+36;
-            if(writes>worst_writes)worst_writes=writes;
-            frames++;
-              if(auto_mode && shot_mode && !dump_done &&
-                 (now>180 || (!no_fx && now>0 && fx_shown))) {
-                  dump_frame("FRAME.RAW");dump_done=1;
-              }
-        }
-        if(auto_mode && now>(int)duration+10)exit_now=1;
-    }
+    run_show();
     cleanup();
+    if(!auto_mode && !clk_virtual) {
+        printf("Radio Shack Rave: %u hits, %u misses, score %lu.\n",hits,misses,score);
+        return 0;
+    }
+    /* Diagnostics only for scripted runs; a play from floppy writes nothing. */
     trace_save("AUDIO.TXT");
     r.h.ah=15;int86(0x10,&r,&r);
     log=fopen("RUNLOG.TXT","w");
     if(log) {
         fprintf(log,"mode=%d reason=%d restore_video=%d restore_keyboard=%d\n",
-            auto_mode,reason,(unsigned)r.h.al==old_mode,
+            auto_mode,exit_reason,(unsigned)r.h.al==old_mode,
             _dos_getvect(9)==old_keyboard);
-        fprintf(log,"score=%lu hits=%u misses=%u best=%u ghosts=%u restart=%u\n",
-            score,hits,misses,best,ghosts,restart_count);
+        fprintf(log,"score=%lu hits=%u misses=%u best=%u ghosts=%u restart=%u silent_hits=%u\n",
+            score,hits,misses,best,ghosts,restart_count,silent_hits);
         fprintf(log,"lead_attacks=%u lead_releases=%u audio_events=%u overflow=%u backing_checksum=%lu\n",
             lead_attacks,lead_releases,audio_count,audio_overflow,backing_checksum);
         fprintf(log,"required=%u total_lead=%u automatic=%u reference=%u auto_skipped=%u\n",
             required_taps,taps,automatic_attacks,reference_attacks,automatic_skipped);
-        fprintf(log,"frames=%u skipped_intervals=%u worst_draw_ticks=%u max_vram_bytes=%u\n",
-            frames,late_frames,worst_ticks,worst_writes);
-        fprintf(log,"fx_updates=%u fx_deferred=%u fx_max_writes=%u word_changes=%u word_max_writes=%u judgments=%u\n",
-              fx_updates,fx_deferred,fx_max_writes,fx_changes,fx_word_max,fx_seen);
-        fprintf(log,"fx_slow_frames=%u\n",fx_slow_frames);
-        fprintf(log,"worst_modulo_pit_counts=%u input_wait_ticks=%u IRQ1=%u makes=%u breaks=%u repeats=%u\n",
-            worst_pit_counts,max_input_wait,irq_count,key_makes,key_breaks,key_repeats);
+        fprintf(log,"frames=%u skipped_intervals=%u worst_draw_ticks=%u worst_draw_ms=%lu avg_draw_ms10=%lu vram_bytes=%lu\n",
+            frames,late_frames,worst_ticks,(unsigned long)worst_fine*55UL/256UL,
+            frames?fine_sum*550UL/256UL/frames:0UL,vram_bytes);
+        fprintf(log,"judgments=%u awesome=%u nice=%u missed=%u title=%s segments=%u difficulty=%u\n",
+            fx_seen,fx_awesome,fx_nice,fx_missed,song_title,nsegs,difficulty);
+        fprintf(log,"input_wait_ticks=%u IRQ1=%u makes=%u breaks=%u repeats=%u pit_mode=%d\n",
+            max_input_wait,irq_count,key_makes,key_breaks,key_repeats,clk_mode2?2:3);
         fprintf(log,"state_cursor=%u/%u final_tick=%u/%u music_updates=%u queue_overflow=%u\n",
             next_state,states,last_music_tick,duration,music_updates,overflow);
-        fprintf(log,"memory states=%u chart=%u judged=%u old_y=%u keyboard=%u; PIT0 unchanged\n",
-            sizeof(music),sizeof(chart),sizeof(judged),sizeof(old_y),
-            sizeof(down)+sizeof(queue)+sizeof(queue_tick));
+        fprintf(log,"memory states=%u chart=%u judged=%u segs=%u keyboard=%u; PIT0 unchanged\n",
+            (unsigned)sizeof(music),(unsigned)sizeof(chart),(unsigned)sizeof(judged),(unsigned)sizeof(segs),
+            (unsigned)(sizeof(down)+sizeof(queue)+sizeof(queue_tick)));
+        fprintf(log,"prof lanes=%lu caps=%lu pulses=%lu stars=%lu hud=%lu rows=%u\n",prof[0]>>8,prof[1]>>8,prof[2]>>8,prof[3]>>8,prof[4]>>8,rows_written);
         fprintf(log,"cleanup_owned=%d keyboard_owned=%d video_owned=%d speaker_low=%u\n",
             owned,keyboard_owned,video_owned,inp(0x61)&3);
         fclose(log);
     }
-    printf("Radio Shack Rave: %u hits, %u misses, score %lu.\n",hits,misses,score);
     return 0;
 }
