@@ -313,46 +313,51 @@ def expected_notes(runs, grid):
 
 
 # --------------------------------------------------------------------- main
-def build(args):
-    data = Path(args.midi).read_bytes()
-    ppq, tracks, tempos, sigs = read_smf(data)
-    if args.list:
-        list_tracks(ppq, tracks, tempos, sigs)
-        return 0
-    if not args.voice or not 1 <= len(args.voice) <= 3:
-        raise MidiError('give 1..3 --voice specs (the first is the lead)')
-    if args.grid not in (1, 2, 4, 8, 16):
-        raise MidiError('--grid must be 1, 2, 4, 8 or 16 subdivisions per quarter note')
+def arrange(smf, specs, *, from_bar=1, to_bar=0, grid=4, tempo=None, volumes=(), fold=False,
+            title='', difficulty='normal', check=False):
+    """Reduce a parsed MIDI (read_smf result) to bounded Rave MML; return a result dict.
+
+    Raises MidiError with an explanatory message for anything that cannot be represented.
+    """
+    ppq, tracks, tempos, sigs = smf
+    if not specs or not 1 <= len(specs) <= 3:
+        raise MidiError('give 1..3 voice specs (the first is the lead)')
+    if grid not in (1, 2, 4, 8, 16):
+        raise MidiError('grid must be 1, 2, 4, 8 or 16 subdivisions per quarter note')
+    if from_bar < 1:
+        raise MidiError('from-bar must be at least 1')
     bt = bar_ticks(ppq, sigs)
-    end_all = max(n[1] for tr in tracks for n in tr['notes'])
-    t0 = (args.from_bar - 1) * bt
-    t1 = min((args.to_bar - 1) * bt, -(-end_all // bt) * bt) if args.to_bar else -(-end_all // bt) * bt
+    end_all = max((n[1] for tr in tracks for n in tr['notes']), default=0)
+    if not end_all:
+        raise MidiError('the file contains no notes')
+    t0 = (from_bar - 1) * bt
+    t_end = -(-end_all // bt) * bt
+    t1 = min((to_bar - 1) * bt, t_end) if to_bar else t_end
     if t1 <= t0:
-        raise MidiError('empty excerpt')
-    in_range = [u for t, u in tempos if t < t1] or [500000]
+        raise MidiError('empty excerpt: to-bar must be after from-bar and inside the song')
     at_start = [u for t, u in tempos if t <= t0]
     start_tempo = at_start[-1] if at_start else (tempos[0][1] if tempos else 500000)
     inside = {u for t, u in tempos if t0 < t < t1}
-    bpm = args.tempo or round(60e6 / start_tempo)
-    if inside and not args.tempo and max(abs(60e6 / u - bpm) for u in inside) > 0.6:
+    bpm = tempo or round(60e6 / start_tempo)
+    if inside and not tempo and max(abs(60e6 / u - bpm) for u in inside) > 0.6:
         raise MidiError(f'tempo changes inside the excerpt ({sorted(round(60e6 / u, 1) for u in inside)} BPM); '
-                        'pick a constant-tempo span or pass --tempo to flatten it explicitly')
+                        'pick a constant-tempo span or give an explicit tempo to flatten it')
     if not 32 <= bpm <= 255:
-        raise MidiError(f'tempo {bpm} BPM is outside 32..255; pass --tempo with an explicit half- or double-time value')
-    unit = ppq / args.grid
-    voices, shifts, report = [], {}, []
-    for vi, spec in enumerate(args.voice):
+        raise MidiError(f'tempo {bpm} BPM is outside 32..255; give an explicit half- or double-time tempo')
+    unit = ppq / grid
+    voices, shifts = [], {}
+    for vi, spec in enumerate(specs):
         notes, mode = parse_voice(spec, tracks)
         runs, stats = reduce_voice(notes, mode, t0, t1, unit)
         pitches = [p for _, p, _, _ in runs if p is not None]
         if not pitches:
-            raise MidiError(f'voice {vi + 1} ({spec}) has no notes in bars {args.from_bar}..{args.to_bar or "end"}')
-        shift = octave_shift(pitches, args.fold)
+            raise MidiError(f'voice {vi + 1} ({spec}) has no notes in bars {from_bar}..{to_bar or "end"}')
+        shift = octave_shift(pitches, fold)
         folded = 0
         if shift is None:
             raise MidiError(f'voice {vi + 1} ({spec}) spans {min(pitches)}..{max(pitches)}, wider than the PSG range '
-                            f'{LOW}..{HIGH}; narrow the source or pass --fold to octave-fold single notes')
-        if args.fold:
+                            f'{LOW}..{HIGH}; narrow the source or allow octave folding of single notes')
+        if fold:
             fixed = []
             for nid, p, s, c in runs:
                 if p is not None:
@@ -361,54 +366,78 @@ def build(args):
                     p = p2
                 fixed.append((nid, p, s, c))
             runs = fixed
-        voices.append((spec, runs, shift, stats, folded))
+            pitches = [p for _, p, _, _ in runs if p is not None]
+        vol = volumes[vi] if vi < len(volumes) else VOLUMES[vi]
+        voices.append(dict(spec=spec, runs=runs, shift=shift, stats=stats, folded=folded, volume=vol,
+                           notes=len(pitches) and sum(1 for r in runs if r[1] is not None),
+                           lo=min(pitches), hi=max(pitches)))
         shifts[vi + 1] = shift
-    total_cells = (t1 - t0) // unit
-    parts = []
-    for vi, (spec, runs, shift, stats, folded) in enumerate(voices):
-        vol = args.volume[vi] if vi < len(args.volume) else VOLUMES[vi]
-        parts.append(emit_voice(runs, args.grid, vol, bpm if vi == 0 else None))
+    parts = [emit_voice(v['runs'], grid, v['volume'], bpm if i == 0 else None) for i, v in enumerate(voices)]
     text = 'MML@' + ','.join(parts) + ';'
     if len(text) > MAX_BYTES:
-        sizes = [len(p) for p in parts]
-        raise MidiError(f'{len(text)} bytes exceeds the {MAX_BYTES}-byte source limit (voices: {sizes}); '
-                        'use a shorter excerpt, a coarser --grid, or fewer notes')
-    # Verify the text means exactly what was quantized.
-    parsed, tmap, duration = parse(text, parts_only=True)
-    for vi, (spec, runs, shift, _, _) in enumerate(voices):
-        want = expected_notes(runs, args.grid)
+        raise MidiError(f'{len(text)} bytes exceeds the {MAX_BYTES}-byte source limit '
+                        f'(voices: {[len(x) for x in parts]}); use a shorter excerpt, a coarser grid, or fewer notes')
+    parsed, _, duration = parse(text, parts_only=True)
+    for vi, v in enumerate(voices):
+        want = expected_notes(v['runs'], grid)
         got = [(n['start'] * bpm / 60, n['end'] * bpm / 60, n['note']) for n in parsed[vi] if n['note']]
         if got != want:
             raise MidiError(f'internal check failed: voice {vi + 1} text differs from the quantized notes')
-    Path(args.output).write_text(text + '\n', encoding='ascii') if args.output else None
     bars = (t1 - t0) // bt
-    print(f'excerpt bars {args.from_bar}..{args.from_bar + bars} ({bars} bars), tempo {bpm} BPM, grid 1/{args.grid * 4} note, '
-          f'{len(text)} bytes ({MAX_BYTES} max), {float(duration):.1f} s')
-    for vi, (spec, runs, shift, stats, folded) in enumerate(voices):
-        notes = [r for r in runs if r[1] is not None]
-        pitches = [r[1] for r in notes]
-        role = 'lead' if vi == 0 else 'backing'
-        print(f' voice {vi + 1} ({role}) {spec}: {len(notes)} notes, source pitch {min(pitches)}..{max(pitches)}, '
-              f'shift {shift:+d} -> {min(pitches) + shift}..{max(pitches) + shift}; '
-              f'skipped carry-in {stats["skipped_before"]}, cut at end {stats["cut_after"]}, '
-              f'lengthened to one cell {stats["snapped_short"]}' + (f', octave-folded {folded}' if folded else ''))
-    title = args.title or Path(args.midi).stem
-    vt = ' '.join(f'--voice-transpose {k}:{v:+d}' for k, v in shifts.items() if v)
-    print(f'import: python tools/import_score.py {args.output or "SONG.mml"} OUT.RBG --lead 1 '
-          f'--difficulty {args.difficulty} --title "{title}" {vt}'.rstrip())
-    if args.check:
+    result = dict(text=text, bytes=len(text), bpm=bpm, grid=grid, from_bar=from_bar, bars=bars,
+                  seconds=float(duration), voices=voices, shifts=shifts, difficulty=difficulty,
+                  title=title, import_check=None)
+    if check:
         from import_score import convert, clean_title
-        title = clean_title(title)
+        import json
+        result['title'] = clean_title(title or 'SONG')
         try:
-            blob, rep, _ = convert(text, lead='1', parts=list(range(1, len(voices) + 1)), difficulty=args.difficulty,
-                                   title=title, voice_transpose={k: v for k, v in shifts.items() if v})
+            _, rep, _ = convert(text, lead='1', parts=list(range(1, len(voices) + 1)), difficulty=difficulty,
+                                title=result['title'], voice_transpose={k: v for k, v in shifts.items() if v})
         except ScoreError as e:
             raise MidiError(f'import_score rejected the arrangement: {e}')
-        import json
-        r = json.loads(rep)
-        print(f'check: import_score accepts it: {r["lead_events"]} lead events ({MAX_LEAD_EVENTS} max), '
-              f'{r["chart_taps"]} taps, {r["automatic_lead_events"]} automatic, {r["states"]} PSG states, '
-              f'{r["seconds"]} s')
+        result['import_check'] = json.loads(rep)
+    return result
+
+
+def import_command(result, mml_name='SONG.mml', rbg_name='OUT.RBG'):
+    vt = ' '.join(f'--voice-transpose {k}:{v:+d}' for k, v in result['shifts'].items() if v)
+    return (f'python tools/import_score.py {mml_name} {rbg_name} --lead 1 --difficulty {result["difficulty"]} '
+            f'--title "{result["title"]}" {vt}').rstrip()
+
+
+def describe(result):
+    """Human-readable report lines shared by the CLI and the GUI."""
+    lines = [f'excerpt bars {result["from_bar"]}..{result["from_bar"] + result["bars"]} ({result["bars"]} bars), '
+             f'tempo {result["bpm"]} BPM, grid 1/{result["grid"] * 4} note, '
+             f'{result["bytes"]} bytes ({MAX_BYTES} max), {result["seconds"]:.1f} s']
+    for vi, v in enumerate(result['voices']):
+        st = v['stats']
+        lines.append(f' voice {vi + 1} ({"lead" if vi == 0 else "backing"}) {v["spec"]}: {v["notes"]} notes, '
+                     f'source pitch {v["lo"]}..{v["hi"]}, shift {v["shift"]:+d} -> {v["lo"] + v["shift"]}..{v["hi"] + v["shift"]}; '
+                     f'skipped carry-in {st["skipped_before"]}, cut at end {st["cut_after"]}, '
+                     f'lengthened to one cell {st["snapped_short"]}' + (f', octave-folded {v["folded"]}' if v['folded'] else ''))
+    r = result['import_check']
+    if r:
+        lines.append(f'check: import_score accepts it: {r["lead_events"]} lead events ({MAX_LEAD_EVENTS} max), '
+                     f'{r["chart_taps"]} taps, {r["automatic_lead_events"]} automatic, {r["states"]} PSG states, {r["seconds"]} s')
+    return lines
+
+
+def build(args):
+    ppq, tracks, tempos, sigs = read_smf(Path(args.midi).read_bytes())
+    if args.list:
+        list_tracks(ppq, tracks, tempos, sigs)
+        return 0
+    result = arrange((ppq, tracks, tempos, sigs), args.voice, from_bar=args.from_bar, to_bar=args.to_bar,
+                     grid=args.grid, tempo=args.tempo, volumes=args.volume, fold=args.fold,
+                     title=args.title or Path(args.midi).stem, difficulty=args.difficulty, check=args.check)
+    if args.output:
+        Path(args.output).write_text(result['text'] + '\n', encoding='ascii')
+    print('\n'.join(l for l in describe(result) if not l.startswith('check:')))
+    print('import: ' + import_command(result, args.output or 'SONG.mml'))
+    if result['import_check']:
+        print(next(l for l in describe(result) if l.startswith('check:')))
     return 0
 
 

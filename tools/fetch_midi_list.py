@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import re
 import sys
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -53,6 +54,25 @@ def check_midi(data, max_bytes):
     if data[:4] != b'MThd':
         raise ValueError('not a Standard MIDI File (missing MThd header)')
     return data
+
+
+def midi_link_from_html(html, base):
+    """First .mid link on a page (BitMidi song pages carry /uploads/N.mid), made absolute; else None."""
+    m = re.search(r'href=["\']([^"\']+\.mid)["\']', html, re.I)
+    return urllib.parse.urljoin(base, m.group(1)) if m else None
+
+
+def resolve_midi_url(url, timeout=30):
+    """Return a direct .mid URL: the URL itself, or the .mid link found on a song page."""
+    if urllib.parse.urlparse(url).path.lower().endswith(('.mid', '.midi')):
+        return url
+    req = urllib.request.Request(url, headers={'User-Agent': 'radio-shack-rave-fetch/1'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        html = resp.read(2_000_000).decode('utf8', 'replace')
+    link = midi_link_from_html(html, url)
+    if not link:
+        raise ValueError('no .mid link found on that page; copy the direct .mid URL instead')
+    return link
 
 
 def download(url, max_bytes, timeout=30):
