@@ -21,3 +21,5 @@ SPLASH.RAW
 runtime/SPLASH.RAW
 *.mp4
 *.wav
+midi-local/
+SONGS/
