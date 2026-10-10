@@ -115,4 +115,12 @@ class MidiToMml(unittest.TestCase):
   over=[(i*24,i*24+24,60+i%2) for i in range(m2m.MAX_LEAD_EVENTS+1)]
   code,_,err,text=self.run_tool(smf([(0,over)]),'--voice','1:top','--check')
   self.assertEqual(code,1);self.assertIn('2048',err);self.assertEqual(text,'')
+ def test_failed_check_preserves_existing_output_and_input_is_protected(self):
+  with tempfile.TemporaryDirectory() as d:
+   src=Path(d)/'in.mid';data=smf([(0,[(0,96,60)])]);src.write_bytes(data)
+   out=Path(d)/'out.mml';out.write_text('keep previous')
+   with contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+    self.assertEqual(m2m.main([str(src),'-o',str(src),'--voice','1:top']),1)
+    self.assertEqual(m2m.main([str(src),'-o',str(out),'--voice','1:top','--tempo','0','--check']),1)
+   self.assertEqual(src.read_bytes(),data);self.assertEqual(out.read_text(),'keep previous')
 if __name__=='__main__':unittest.main()

@@ -59,8 +59,8 @@
     "tools/make_splash.py": "fc2d6567a239ebe27e96373de0a0f293640a90c2177cb0b0a73358078d6da044",
     "tools/mml.py": "3e242c0a63e40f2d4f8b08f856edd3ce7b554b24d8b1ff92aff702e133873a17",
     "tools/tour_video.py": "86c7f65a9af12e2f9eaab42740a65af2bd871bb83eaf4796714bde1b6e158a44",
-    "tools/midi_to_mml.py": "e65d65ab0a4d79f037c0607268d76786658184db1485893c242c0d321cfc453d",
-    "tests/test_midi_to_mml.py": "29278121d1f4dfb8b1e6323daf2ef539f9e4d0550d795a66c57bb8ccb228c49e",
+    "tools/midi_to_mml.py": "ac30c157e33aeee0883c9f3f14cf1848933cdc61d9c0b44cec4f52214f96f85a",
+    "tests/test_midi_to_mml.py": "91194b8aec334e3425c2250296a56cb255caefab8e7f5f85b33686c94025b194",
     "tests/leftfx_host.py": "52eed8bc2982be8166a42f91a45952eb3af065f023952a31f2a55271e6d1000b"
   },
   "public_branding": "original code-drawn splash/title; LOGO.BIN user-supplied, never bundled",

@@ -1,5 +1,5 @@
 {
-  "status": "INTEGRATION_CANDIDATE; HOST_PASS; EXACT_RUNTIME_CI_AND_NATIVE_PENDING",
+  "status": "EXPERIMENTAL; EXACT_RUNTIME_EMULATOR_CI_PASS; FINAL_SOURCE_HEAD_CI_REQUIRED",
   "engine": "v6 title selection, packed effects/completed dwell, far-memory RBG5 songs/drums/high scores, offline MIDI tool",
   "runtime_sha256": "496978d34df121d5039fc7d05362d35daf1ffbf4d748aeb5c73ddd75a89535fd",
   "toolchains": {
@@ -7,13 +7,14 @@
     "CI": "Official immutable date tag2026-10-01-Build; SHA256 independently downloaded and verified before pinning"
   },
   "local_tests": {
-    "host_unit_tests": 44,
+    "host_unit_tests": 45,
     "strict_C89_lint": "PASS",
     "image_palette_pairs_equal": 56,
     "original_core_hit_reference_equal": true,
     "local_rebuild19_sha256": "b87302611488b8b61bbac61523b0a7df819f62f8d8e5ab453ee844c21e9b03b5",
     "local_rebuild19_equals_previously_tested_NEW": true,
-    "current_bundled_runtime": "Fresh official fixed-toolchain CI artifact from source ec33f05; native qualification pending"
+    "current_bundled_runtime": "Fresh official fixed-toolchain CI artifact; strict byte comparison and native suite PASS in run 38095758022",
+    "private_chart_loader_checks": 29
   },
   "bounds": {
     "candidate_filenames": 64,
@@ -33,7 +34,8 @@
     "source_mml_bytes": 131072,
     "midi_input_bytes": 8388608,
     "midi_grid_cells": 50000,
-    "midi_reduction_cell_work": 5000000
+    "midi_reduction_cell_work": 5000000,
+    "maximum_image_plus_allocation_bytes": 169184
   },
   "host_shutdown": "Local DOSBox-X2025.12.01 exited with0xC0000005 after guest logs completed; cause unresolved. Earlier0xC0000409 retained locally. Guest cleanup records pass independently.",
   "unimplemented": [
@@ -102,6 +104,10 @@
     "source_sha": "ec33f05c8f47f7be2d512a6d675d1f80a4601af0",
     "sha256": "496978d34df121d5039fc7d05362d35daf1ffbf4d748aeb5c73ddd75a89535fd",
     "bytes": 103732,
-    "native_tests": "PENDING"
-  }
+    "native_tests": "PASS baseline diagnostics and original synthetic playlist/word fixtures",
+    "qualified_run": 38095758022,
+    "qualified_head": "c75af77e207f78f024898238cba7955103f8c09b",
+    "qualified_merge_tree": "d69d9aa6b0efa9c5aa79fc33091d8568385c21e9"
+  },
+  "final_source_CI": "Check final commit GitHub status; runtime identity is unchanged by offline tool/docs refinements."
 }

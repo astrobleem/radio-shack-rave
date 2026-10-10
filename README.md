@@ -46,7 +46,8 @@ text still appear. There is no strobe in either mode.
 
 ### The left panel
 
-A framed window beside the lanes changes scene every two bars and keeps
+A framed window beside the lanes holds each completed scene for at least
+16 beats and 146 BIOS ticks, then keeps
 rotating across songs: **DJ Alfredo** on the decks, plasma, a spiral starburst
 with a rotating wireframe cube, a starfield tunnel, a rotozoomer, copper bars,
 a waving checkered flag and a synthwave grid floor.
@@ -118,8 +119,8 @@ Local-only compatibility checks cover the preserved library; those song files
 and their audio/notation are not included in public artifacts.
 
 The Watcom cross-build now applies a checked 4096-paragraph extra DOS allocation
-cap, matching the intent of the MSC6 linker cap. The 9 KB far cache and 4.8 KB
-scene buffer fit within that budget. This is an allocation bound, not a physical CPU performance claim.
+cap, matching the intent of the MSC6 linker cap. The far cache and packed scene
+images fit within that budget. This is an allocation bound, not a physical CPU performance claim.
 
 Bounded ArcheAge-style MML profile: optional `MML@...;`, case-insensitive notes,
 rests, sharps/flats, octaves, lengths, dots, tempo, volume, same-pitch ties and
@@ -187,8 +188,9 @@ in `music`.
   so a slow frame no longer delays it by the whole frame; a hit noticed up to
   a tick late still plays in full.
 * **Far cache.** Key caps and outlined judgment words are rendered once into a
-  9 KB far block, and the current scene is decoded into a 4.8 KB far buffer
-  used to restore pixels under moving figures (all within `LINK /CP:4096`).
+  9 KB far block. Seven immutable host-packed scene images use 33,600 far bytes;
+  sprite restoration reads those images directly, without a scene heap buffer
+  (all within `LINK /CP:4096`).
 * **Frame pacing.** Each frame starts at vertical retrace; a frame that ran
   longer than a quarter tick skips the wait instead of losing another.
 * Exit restores video mode, IRQ1, sound ownership and the speaker; PIT0 is
@@ -259,7 +261,7 @@ separate permissive grant in `music/LICENSE.TXT`. Keep source and notices with f
 ## Playlist and feedback update
 
 Discovery reads only directory metadata: at most 64 candidate 8.3 filenames and
-1024 directory matches. A selected file receives full RBG2/3/4 validation before
+1024 directory matches. A selected file receives full RBG2/3/4/5 validation before
 playback. Invalid or disappeared candidates are disabled; empty/all-invalid
 catalogs fall back to `ORIGINAL.RBG`. If that also fails, hardware is untouched.
 Files beyond the candidate limit require explicit selection or a smaller folder.
@@ -316,7 +318,7 @@ unrepresentable syntax still fails explicitly. Existing RBG files are not rewrit
 The default `elapsed` policy remains available; `full` keeps its documented risk
 for dense/short notes.
 
-Backing untied-note articulation/envelopes, a song noise/drum format and RMS VU
+Backing untied-note articulation/envelopes and RMS VU
 are **not implemented**. Meters show programmed PSG levels. Four-quarter visual
 accents do not encode every source meter. No private song PDF/MML/MIDI/audio or
 chart catalog is published here; only original demo and synthetic fixtures.

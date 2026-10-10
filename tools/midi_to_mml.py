@@ -24,6 +24,7 @@ counts them.
 import argparse
 import re
 import sys
+from collections import deque
 from fractions import Fraction as F
 from pathlib import Path
 
@@ -105,6 +106,10 @@ def read_smf(data):
                     raise MidiError('truncated meta payload')
                 payload = body[i:i + length]
                 i += length
+                if mtype == 0x51 and length != 3:
+                    raise MidiError('tempo meta event must contain three bytes')
+                if mtype == 0x58 and length != 4:
+                    raise MidiError('time-signature meta event must contain four bytes')
                 if mtype == 0x03 and not name:
                     name = payload.decode('latin-1', 'replace')
                 elif mtype == 0x51 and length == 3:
@@ -144,11 +149,11 @@ def read_smf(data):
             a, c = body[i], body[i + 1]
             i += 2
             if kind == 0x90 and c > 0:
-                open_.setdefault((ch, a), []).append(now)
+                open_.setdefault((ch, a), deque()).append(now)
             elif kind in (0x80, 0x90):
                 stack = open_.get((ch, a))
                 if stack:
-                    notes.append((stack.pop(0), now, a, ch))
+                    notes.append((stack.popleft(), now, a, ch))
         for (ch, a), starts in open_.items():
             notes.extend((s, now, a, ch) for s in starts)
         tracks.append(dict(index=index, name=name, notes=sorted(notes), programs=programs))
@@ -382,7 +387,7 @@ def build(args):
         raise MidiError('empty excerpt')
     in_range = [u for t, u in tempos if t < t1] or [500000]
     at_start = [u for t, u in tempos if t <= t0]
-    start_tempo = at_start[-1] if at_start else (tempos[0][1] if tempos else 500000)
+    start_tempo = at_start[-1] if at_start else 500000
     inside = {u for t, u in tempos if t0 < t < t1}
     bpm = args.tempo if args.tempo is not None else round(60e6 / start_tempo)
     if inside and not args.tempo and max(abs(60e6 / u - bpm) for u in inside) > 0.6:
