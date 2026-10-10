@@ -1,9 +1,9 @@
-/* Left panel: a framed 96x100 window that cycles through effects, one new
- * scene every two bars, continuing across songs.
+/* Left panel: a framed 96x100 window that cycles through effects, holding
+ * each completed scene for at least four bars and eight seconds.
  *
  * Palette cycling. Logical colors 3, 4, 7 and 9 appear only inside this
  * window; the rest of the playfield never uses them. Each scene's image is
- * a precomputed map of cycle phases (tools/gen_fx.py -> FXDATA.H). Moving
+ * a precomputed packed image (tools/gen_fx.py -> FXDATA.H). Moving
  * it costs four Tandy palette register writes in vertical blank, whatever
  * the size of the effect: plasma, spiral starburst, tunnel, copper bars,
  * sky and grid floor all animate this way.
@@ -24,50 +24,33 @@
 #define FX_BYTES (FX_BW*FX_H)
 #define FX_CREDIT 24
 #define FX_CREDIT_MAX 72
-#define FX_WIPE_ROWS 10
+#define FX_WIPE_ROWS 20
 /* fx_wipe 0..FX_H-1 scans the old scene out to black, FX_H..FX_DONE-1
    scans the new one in; FX_DONE means idle. */
 #define FX_DONE (2*FX_H)
-#define FX_BEATS 8
+#define FX_BEATS 16
+/* 146 BIOS ticks exceed eight seconds. Neither drawing nor calm time
+   consumes this dwell; the song clock keeps running throughout. */
+#define FX_DWELL_FINE (146UL*256)
 static const unsigned char fx_cidx[4]={3,4,7,9};
-static unsigned char fx_lut[256][2];
-static unsigned char far *fxbuf;
+static const unsigned char far *fxbuf;
 static int fx_scene=-1,fx_wipe=FX_DONE,fx_ready;
 static unsigned fx_base,fx_seen_mask,fx_switches,fx_lite;
-static long fx_credit,fx_slot,fx_slot0;
-static unsigned long fx_core_avg,fx_spent;
+static long fx_credit,fx_hold_beat;
+static unsigned long fx_core_avg,fx_spent,fx_hold_time;
+static int fx_present,fx_holding;
 
 static void fx_init(void)
 {
-    unsigned b;
-    for(b=0;b<256;b++) {
-        fx_lut[b][0]=(unsigned char)((fx_cidx[b>>6]<<4)|fx_cidx[(b>>4)&3]);
-        fx_lut[b][1]=(unsigned char)((fx_cidx[(b>>2)&3]<<4)|fx_cidx[b&3]);
-    }
-    fxbuf=(unsigned char far *)_fmalloc(FX_BYTES);
+    fxbuf=fx_images[0];
 }
-/* Decode one row of scene s into fxbuf and copy it to the screen. Rows are
-   decoded top to bottom; the static runs are sorted by row, so a cursor
-   walks them once per scene instead of rescanning the list every row. */
-static const unsigned char far *fx_rp;
+/* Final pixels are generated on the host, including static overlays.
+   Sprite restoration reads that same immutable image: no heap copy. */
 static void fx_row(unsigned s,unsigned y)
 {
-    static unsigned char row[FX_BW];
-    const unsigned char far *m=fx_maps[s];
-    const unsigned char far *r;unsigned x,i,n,a,b,c;
-    if(m)for(x=0,m+=y*24;x<24;x++){row[2*x]=fx_lut[m[x]][0];row[2*x+1]=fx_lut[m[x]][1];}
-    else memset(row,0,FX_BW);
-    if(!y)fx_rp=fx_runs+fx_run_off[s];
-    while(fx_rp[0]!=255 && fx_rp[0]<y)fx_rp+=4;
-    for(r=fx_rp;r[0]==y;r+=4) {
-        a=r[3]>>4;b=r[3]&15;
-        for(i=r[1],n=r[2];n;n--,i++) {
-            c=((i+y)&1)?b:a;
-            row[i>>1]=(unsigned char)((i&1)?(row[i>>1]&0xf0)|c:(row[i>>1]&0x0f)|(c<<4));
-        }
-    }
-    if(fxbuf)_fmemcpy(fxbuf+y*FX_BW,(void far *)row,FX_BW);
-    _fmemcpy(video+row_ofs[FX_Y+y]+FX_X/2,(void far *)row,FX_BW);
+    unsigned char far *p=video+row_ofs[FX_Y+y]+FX_X/2;
+    if(fx_images[s])_fmemcpy(p,fx_images[s]+y*FX_BW,FX_BW);
+    else _fmemset(p,0,FX_BW);
 }
 static unsigned fx_bg(int x,int y)
 {
@@ -311,7 +294,7 @@ static void al_frame(long s256)
     int pose=al_seq[(unsigned)(s256>>7)&15],bob=(s256&255)<80?2:0,key=pose*4+bob;
     int nx=AL_X,ny=AL_Y+bob,hx=nx,hy=ny-7,i,k,y;const Arm *a;
     if(key==al_shown)return;
-    /* Erase by restoring his whole box from the decoded scene. */
+    /* Erase by restoring his whole box from the packed scene. */
     if(fxbuf && al_shown>=0)for(y=AL_R0;y<AL_BOOTH;y++)
         _fmemcpy(video+row_ofs[FX_Y+y]+FX_X/2+AL_C0,fxbuf+y*FX_BW+AL_C0,AL_C1-AL_C0);
     al_line(nx,ny,nx,AL_BOOTH,15);
@@ -355,9 +338,13 @@ static void fx_reset(long nowf)
 {
     unsigned y;
     if(fx_scene<0)fx_scene=0;
-    fx_slot0=-1;fx_credit=0;
+    fx_holding=fx_present=0;fx_credit=0;
+    fxbuf=fx_images[fx_scene];
     fx_frame_box();
-    for(y=0;y<FX_H;y++)fx_row((unsigned)fx_scene,y);
+    for(y=0;y<FX_H;y++) {
+        fx_row((unsigned)fx_scene,y);
+        if((y&3)==3)audio_poll();
+    }
     fx_wipe=FX_DONE;fx_sprites_off();stars_reset(nowf);
     fx_seen_mask|=1u<<fx_scene;
     fx_pal((unsigned)fx_scene,0);
@@ -367,13 +354,14 @@ static int fx_heavy(unsigned s){return fx_type[s]==FXK_ROTOZOOM || fx_type[s]==F
 static void fx_begin(unsigned s)
 {
     fx_scene=(int)s;fx_wipe=0;fx_sprites_off();fx_switches++;
+    fxbuf=fx_images[s];fx_holding=fx_present=0;
     fx_seen_mask|=1u<<s;
 }
 /* Called once per playfield frame after lanes and HUD; core is the fine
    time those took, used to decide how much the window may spend. */
 static void fx_frame(long nowf,unsigned core)
 {
-    long s256,slot;unsigned target,s,n;unsigned long t0,used;
+    long s256;unsigned target,s,n;unsigned long t0,used;
     if(!fx_ready)return;
     t0=clk_fine();
     /* Running average of the playfield's own cost; slow machines skip the
@@ -388,16 +376,20 @@ static void fx_frame(long nowf,unsigned core)
             fx_pal((unsigned)fx_scene,0);
         }
         fx_still((unsigned)fx_scene);
+        fx_holding=0;fx_present=1;
         return;
     }
     s256=fx_beat256(nowf);
     fx_credit+=FX_CREDIT;
     if(fx_credit>FX_CREDIT_MAX)fx_credit=FX_CREDIT_MAX;
-    /* A new scene every FX_BEATS beats; the rotation continues across songs. */
-    slot=nowf<0?-1:s256/(256L*FX_BEATS);
-    if(fx_slot0<0 && slot>=0){fx_slot0=slot;fx_slot=slot;}
-    if(slot>=0 && slot!=fx_slot && fx_wipe>=FX_DONE) {
-        fx_slot=slot;fx_base++;
+    /* Arm on the frame AFTER the complete background and first sprite
+       pass, with its palette flushed. Slow drawing cannot spend dwell. */
+    if(nowf>=0 && fx_present && !fx_holding && !pal_dirty) {
+        fx_hold_beat=s256;fx_hold_time=t0;fx_holding=1;
+    }
+    if(fx_holding && s256-fx_hold_beat>=256L*FX_BEATS &&
+       t0-fx_hold_time>=FX_DWELL_FINE && fx_wipe>=FX_DONE) {
+        fx_base++;
         target=fx_base%FX_SCENES;
         for(n=0;n<FX_SCENES && fx_lite && fx_heavy(target);n++)target=(target+1)%FX_SCENES;
         if(target!=(unsigned)fx_scene)fx_begin(target);
@@ -410,16 +402,17 @@ static void fx_frame(long nowf,unsigned core)
         for(n=0;n<FX_WIPE_ROWS && fx_wipe<FX_DONE;n++) {
             if(n && !clk_virtual && (long)(clk_fine()-t0)>=fx_credit)break;
             fx_wipe_row(s);
+            if((n&3)==3)audio_poll();
         }
         if(fx_wipe<FX_DONE)span(FX_X,FX_Y+(fx_wipe<FX_H?fx_wipe:fx_wipe-FX_H),FX_W,fx_wipe<FX_H?8:15);
         else stars_reset(nowf);
         used=clk_fine()-t0;fx_spent+=used;fx_credit-=(long)used;
         return;
     }
-    if(nowf<0){fx_still(s);return;}
+    if(nowf<0){fx_still(s);fx_present=1;return;}
     fx_pal(s,(s256*fx_speed[s])>>8);
     fx_still_done=1;
-    if(fx_credit<=0)return;
+    if(fx_credit<=0 && fx_type[s]!=FXK_NONE)return;
     switch(fx_type[s]) {
     case FXK_CUBE:cube_frame(s256);break;
     case FXK_STARS:stars_frame(nowf);break;
@@ -428,9 +421,13 @@ static void fx_frame(long nowf,unsigned core)
     case FXK_ROTOZOOM:
         if(rz_row>=FX_H/2)rz_start(s256);
         if(clk_virtual)rz_rows(FX_H/2);
-        else while(rz_row<FX_H/2 && (long)(clk_fine()-t0)<fx_credit)rz_rows(5);
+        else while(rz_row<FX_H/2 &&
+                   (long)(clk_fine()-t0)<fx_credit) {
+            rz_rows(5);audio_poll();
+        }
         break;
     }
+    if(fx_type[s]!=FXK_ROTOZOOM || rz_row>=FX_H/2)fx_present=1;
     used=clk_fine()-t0;fx_spent+=used;fx_credit-=(long)used;
 }
 /* Results card: it covers part of the window, so only the palette moves. */

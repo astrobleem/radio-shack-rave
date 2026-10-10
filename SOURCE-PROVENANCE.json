@@ -17,10 +17,10 @@
     "src/DOSSND.C": "63b06aee31e022d453e19e9dd9af6a2443ac2c58e4833f03f75885d71d8a23ac",
     "src/DOSSND.H": "d66756fbd46ae4317fb4e798ea34ec386db7199689b2bfa813277df3efec049b",
     "src/FX.H": "18ac9fbf7b459886831ac3a876d06a9f9473b412adaabbda1b32fc0557c29e47",
-    "src/FXDATA.H": "5ea497e7aa42e82c3484335b4bbc503796075a51ab0aa0184fd507a53d1ca7e9",
+    "src/FXDATA.H": "8da4d8792562b5c7a6c1ba5f1dadf4419351ffd64646ee8d4efe1971368a98da",
     "src/GFX.H": "01b6065ea6d2ef99d18dbd35efdb3aa15165b8958c9ff56b7df6fdaaf904fd69",
     "src/HISCORE.H": "3c558c7de88de6e47804900aa8c84ea91399b3cc35c375dc2192adfe047fff2f",
-    "src/LEFT.H": "4c8e6ca7907dff783132a65a56fcf602eafde63db5868b98c3a637eb01704a1e",
+    "src/LEFT.H": "b12de89b94e1c3213662b017950420e4e8a9b2091763700779a453911a066e8c",
     "src/PLAY.H": "9e4524a2db33d82a8aa4202573974f86def95ca7c3158ab00c687a4cc5996b7a",
     "src/SFX.H": "303db894ac455bc7f9e11d28c438e8faef6b470e6247fb0a7cb01ea273f8b100",
     "src/SHOW.H": "7c6c1f061103d7ef81ab24b0d317de5ca0ab78a6580641d73482e754e8786304",
@@ -54,13 +54,21 @@
     "tools/build_ow.sh": "8944efe26c18648eafe9bd27be95da2cd636bb764554e27fb19c472796de7e08",
     "tools/cap_dos_memory.py": "c27e9dd49800a6484793255e20e4b987bfa6795f13b955dc02d70949d382f1f0",
     "tools/chart_policy.py": "7031e91691e5d561c73e53588796d5340bfa14032438d1d6461a4c5e849cae63",
-    "tools/gen_fx.py": "59356d0e55ce7ba4766e12e4b818e637788af2f09b3275244a0b1072bda7e97c",
+    "tools/gen_fx.py": "5f6afd5a7391b22885fb0f9160b1e2e957672f7a78f1b7624543366c0b6b312f",
     "tools/import_score.py": "6d17f2721e58b0939c638ab6027b05bd88cf2c941c74445dcd1c5bdf7b129ee6",
     "tools/make_splash.py": "fc2d6567a239ebe27e96373de0a0f293640a90c2177cb0b0a73358078d6da044",
     "tools/mml.py": "3e242c0a63e40f2d4f8b08f856edd3ce7b554b24d8b1ff92aff702e133873a17",
-    "tools/tour_video.py": "86c7f65a9af12e2f9eaab42740a65af2bd871bb83eaf4796714bde1b6e158a44"
+    "tools/tour_video.py": "86c7f65a9af12e2f9eaab42740a65af2bd871bb83eaf4796714bde1b6e158a44",
+    "tests/leftfx_host.py": "52eed8bc2982be8166a42f91a45952eb3af065f023952a31f2a55271e6d1000b"
   },
   "public_branding": "original code-drawn splash/title; LOGO.BIN user-supplied, never bundled",
   "schema": "rave-public-source-v1",
-  "source_toolchain": "Microsoft C6 /G0 /AS reference or OpenWatcom2 official2026-10-01-Build via tools/build_ow.sh;4096paragraph extra cap"
+  "source_toolchain": "Microsoft C6 /G0 /AS reference or OpenWatcom2 official2026-10-01-Build via tools/build_ow.sh;4096paragraph extra cap",
+  "private_sidefx": {
+    "baseline_commit": "811fcf5bf7e76c604aa80d929538d6ab527a457a",
+    "bundled_runtime": "Unchanged accepted baseline; separate candidate-build/RSRAVE.EXE is unqualified",
+    "scope": "Packed left-panel backgrounds and visible-completion dwell only",
+    "native": "PENDING explicit bounded shared emulator allocation",
+    "physical": "PENDING; no speed claim"
+  }
 }

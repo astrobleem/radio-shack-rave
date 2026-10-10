@@ -46,7 +46,8 @@ text still appear. There is no strobe in either mode.
 
 ### The left panel
 
-A framed window beside the lanes changes scene every two bars and keeps
+A framed window beside the lanes holds each completed scene for at least
+four bars and eight seconds, with a fresh dwell after calm mode, and keeps
 rotating across songs: **DJ Alfredo** on the decks, plasma, a spiral starburst
 with a rotating wireframe cube, a starfield tunnel, a rotozoomer, copper bars,
 a waving checkered flag and a synthwave grid floor.
@@ -117,9 +118,18 @@ the title/difficulty/beat metadata. Synthetic CI checks cover all three formats.
 Local-only compatibility checks cover the preserved library; those song files
 and their audio/notation are not included in public artifacts.
 
-The Watcom cross-build now applies a checked 4096-paragraph extra DOS allocation
-cap, matching the intent of the MSC6 linker cap. The 9 KB far cache and 4.8 KB
-scene buffer fit within that budget. This is an allocation bound, not a physical CPU performance claim.
+The Watcom cross-build applies a checked 4096-paragraph extra DOS allocation
+cap, matching the intent of the MSC6 linker cap. The 9 KB far word cache fits
+within that budget. Left-panel backgrounds are 33,600 bytes of immutable far
+data, already packed for mode 9; sprite restoration reads those same images.
+There is no allocated scene buffer or runtime phase/overlay decoding.
+This is an allocation bound, not a physical CPU performance claim.
+
+This private side-effect source revision is based on
+`811fcf5bf7e76c604aa80d929538d6ab527a457a`. The bundled runtime remains that
+accepted baseline; the separate candidate build requires native and physical
+qualification before delivery. See `PRIVATE-SIDEFX.md` for host evidence,
+work counts, source scope and the pending emulator allocation.
 
 Bounded ArcheAge-style MML profile: optional `MML@...;`, case-insensitive notes,
 rests, sharps/flats, octaves, lengths, dots, tempo, volume, same-pitch ties and

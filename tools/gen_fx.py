@@ -1,11 +1,10 @@
 """Generate src/FXDATA.H: precomputed images for the left-panel effects.
 
 The 8088 never evaluates a sine, a square root or an arctangent for these.
-Each palette-cycled scene is a 96x100 map of cycle phases 0..3 (two bits a
-pixel, ordered-dithered between phases so motion looks continuous) plus a
-short list of static runs (solid or two-color dithered) drawn over it. The
-game expands a map into the window when the scene starts, then animates it
-by rewriting four Tandy palette registers.
+Each palette-cycled scene is a 96x100 image of cycle phases 0..3,
+ordered-dithered between phases so motion looks continuous, with static
+overlays. The host resolves both into final mode-9 bytes. The game copies
+rows into the window, then animates with four Tandy palette registers.
 
 Also generated: the 32x32 rotozoom texture, a 256-entry sine table and each
 scene's eight-entry color gradient.
@@ -316,6 +315,17 @@ def pack(m):
     return out
 
 
+def packed_image(m, runs):
+    """Final mode-9 nibbles, including overlays; no runtime pixel work."""
+    colors = (3, 4, 7, 9)
+    pixels = [[colors[p] for p in row] for row in m]
+    for y, x, n, a, b in runs.rows():
+        for i in range(x, x + n):
+            pixels[y][i] = b if (i + y) & 1 else a
+    return [(row[x] << 4) | row[x + 1]
+            for row in pixels for x in range(0, W, 2)]
+
+
 def c_bytes(name, data, far=True, per=24):
     lines = [f'static const unsigned char {"far " if far else ""}{name}[{len(data)}]={{']
     for i in range(0, len(data), per):
@@ -340,13 +350,12 @@ def build():
         for (y, x, n, a, b) in runs.rows():
             runs_all += [y, x, n, (a << 4) | b]
         runs_all.append(255)
-    for i, data in enumerate(maps):
-        if data is not None:
-            parts.append(c_bytes('fx_map%d' % i, data))
-    parts.append(c_bytes('fx_runs', runs_all))
-    parts.append('static const unsigned char far *const fx_maps[FX_SCENES]={%s};' %
-                 ','.join('fx_map%d' % i if d is not None else '0' for i, d in enumerate(maps)))
-    parts.append('static const unsigned fx_run_off[FX_SCENES]={%s};' % ','.join(map(str, run_off)))
+    for i, (_, fn, _, _, _) in enumerate(SCENES):
+        if fn is not None:
+            m, runs = fn()
+            parts.append(c_bytes('fx_image%d' % i, packed_image(m, runs)))
+    parts.append('static const unsigned char far *const fx_images[FX_SCENES]={%s};' %
+                 ','.join('fx_image%d' % i if d is not None else '0' for i, d in enumerate(maps)))
     parts.append('static const unsigned char fx_grad[FX_SCENES][8]={%s};' %
                  ','.join('{%s}' % ','.join(map(str, g)) for _, _, g, _, _ in SCENES))
     parts.append('static const unsigned char fx_speed[FX_SCENES]={%s};' %
@@ -402,8 +411,8 @@ def main():
         ok = target.exists() and target.read_text() == text
         print('FXDATA.H up to date' if ok else 'FXDATA.H is stale: run tools/gen_fx.py')
         sys.exit(0 if ok else 1)
-    target.write_text(text)
-    print(f'wrote {target}: {len(text)} bytes, maps {sum(len(m) for m in maps if m)} bytes, runs {len(runs_all)} bytes')
+    target.write_bytes(text.replace('\n', '\r\n').encode('ascii'))
+    print(f'wrote {target}: packed images {sum(W * H // 2 for m in maps if m)} bytes')
     if a.preview:
         preview(a.preview, maps, runs_all, run_off)
 

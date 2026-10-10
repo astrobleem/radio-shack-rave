@@ -98,5 +98,14 @@
     "critical_error": "INT 24h stub (mov al,3 / iret; ignore on DOS 2.x) installed only around file access",
     "emulator": "tests/dos_hiscore.py: ranks 1-5 with ties below, full board, malformed file, unwritable file, scripted play writes nothing",
     "not_tested": "a physical write-protected floppy (DOSBox-X cannot raise the critical error the same way)"
+  },
+  "private_sidefx": {
+    "baseline_commit": "811fcf5bf7e76c604aa80d929538d6ab527a457a",
+    "bundled_runtime": "Unchanged accepted baseline; separate candidate-build/RSRAVE.EXE is unqualified",
+    "scope": "Packed left-panel backgrounds and visible-completion dwell only",
+    "native": "PENDING explicit bounded shared emulator allocation",
+    "physical": "PENDING; no speed claim",
+    "host": "56 image/palette pairs equal; completion dwell and unchanged core pass",
+    "historical_fields": "All other fields describe the unchanged bundled baseline runtime"
   }
 }
