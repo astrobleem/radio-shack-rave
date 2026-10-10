@@ -115,7 +115,7 @@ static int load_result=1,next_result=1;
 static int owned,keyboard_owned,video_owned;
 static unsigned old_mode=3,restored_mode,releases,vectors;
 static void (*old_keyboard)(void);
-static FILE *psg_log;
+static FILE *psg_log,*pal_log;
 static void _dos_setvect(unsigned n,void (*v)(void)){assert(n==9 && v==old_keyboard);vectors++;}
 static void DosSoundRelease(void){releases++;}
 static void mode(unsigned n){restored_mode=n;}
@@ -151,11 +151,13 @@ int main(void) {
  songs_mode=1;song_ready=0;lead_div=1;
  assert(song_prepare());assert(cancels==1 && stops==1 && loads==1 && !lead_div);
  assert(song_prepare());assert(loads==1);
- assert(game_run(1)==A_DEMO);assert(resets==1 && !song_ready && clock_tick>=153);
+ /* The attract loop: a finished demo returns to the splash. */
+ assert(game_run(1)==A_SPLASH);assert(resets==1 && !song_ready && clock_tick>=153);
  assert(song_prepare());assert(loads==2 && cancels==2 && stops==2);
  key_once=57;key_at=clock_tick;assert(game_run(1)==A_PLAY);assert(song_ready);
  assert(song_prepare());assert(loads==2); /* Space retains demo song. */
- key_once=1;key_at=clock_tick;assert(game_run(1)==A_EXIT);assert(exit_reason==1);
+ /* Escape in the demo goes back to the title, not to DOS. */
+ key_once=1;key_at=clock_tick;assert(game_run(1)==A_TITLE);assert(!exit_reason);
  song_ready=0;next_result=0;assert(song_prepare());assert(!songs_mode && loads==4);
  songs_mode=1;song_ready=0;load_result=0;assert(!song_prepare());assert(!songs_mode);
  /* After any game the next song is chosen when the title is entered, so the
@@ -172,7 +174,7 @@ int main(void) {
  cleanup();assert(!owned && !keyboard_owned && !video_owned && !lead_div && !psg_log);
  assert(releases==1 && vectors==1 && restored_mode==3);
  cleanup();assert(releases==1 && vectors==1); /* Idempotent final cleanup. */
- puts("PASS production demo/end/Space/Escape/fallback/mute/reset/title-names-next");return 0;
+ puts("PASS production demo/end/Space/Escape-to-title/attract/fallback/mute/reset/title-names-next");return 0;
 }
 '''
 

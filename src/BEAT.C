@@ -38,7 +38,8 @@ static unsigned long fine_sum;
 static volatile unsigned irq_count,key_makes,key_breaks,key_repeats;
 static int reduced, owned, keyboard_owned, video_owned, no_fx, no_logo;
 static int demo_mode, tour_mode;
-static int songs_mode, song_ready;
+static int songs_mode, song_ready, exit_reason;
+static unsigned demo_runs, splash_runs;
 static unsigned long idle_since;
 static volatile unsigned char down[128], queue[32];
 static volatile unsigned queue_tick[32];
@@ -141,6 +142,7 @@ static unsigned key_take(unsigned *ago)
 static void mode(unsigned m)
 {
     union REGS r;r.x.ax=m;int86(0x10,&r,&r);
+    pal_identity();
 }
 static void cleanup(void)
 {
@@ -149,6 +151,7 @@ static void cleanup(void)
     if(owned){DosSoundRelease();owned=0;}
     if(video_owned){mode(old_mode);video_owned=0;}
     if(psg_log){fclose(psg_log);psg_log=0;}
+    if(pal_log){fclose(pal_log);pal_log=0;}
 }
 static int title_char(int c)
 {
@@ -303,7 +306,7 @@ static void restart(void)
     scene_draw();
     audio_count=back_count=audio_overflow=0;backing_checksum=0;
     origin=clk_fine();
-    stars_reset(song_fine());
+    fx_reset(song_fine());
     for(k=0;k<3;k++)key_lit[k]=0;
 }
 static int selftest(void)
@@ -379,7 +382,6 @@ static int simulate(int play)
         hits,misses,lead_attacks,lead_releases,audio_count,audio_overflow,backing_checksum);fclose(f);}
     return audio_overflow || lead_div || (reference_mode?0:(play?hits!=required_taps:misses!=required_taps));
 }
-static int exit_reason;
 /* Called only between games; mute the old track before loading the next. */
 static int song_prepare(void)
 {
@@ -417,7 +419,7 @@ static int game_run(int demo)
             idle_since=clk_ticks();
             if(demo) {
                 if(key==50){reduced=!reduced;continue;}
-                if(key==1){exit_reason=1;return A_EXIT;}
+                if(key==1)return A_TITLE;
                 if(key==57){song_ready=1;return A_PLAY;}
                 return A_TITLE;
             }
@@ -467,7 +469,7 @@ static int game_run(int demo)
         }
         if(auto_mode && auto_mode<10 && now>(int)duration+10)return A_EXIT;
         if(!playing && demo && (int)clk_ticks()-results_t>100)
-            return tour_mode?A_EXIT:(songs_mode?A_DEMO:A_SPLASH);
+            return tour_mode?A_EXIT:A_SPLASH;
         frame_end();
     }
 }
@@ -479,14 +481,14 @@ static int run_show(void)
         return game_run(0);
     }
     if(auto_mode==14)action=A_DEMO;
-    else action=splash_run();
+    else {splash_runs++;action=splash_run();}
     for(;;) {
         if(action==A_EXIT)return action;
         if(!action_ready(action))return A_EXIT;
         if(action==A_PLAY)action=game_run(0);
         else if(action==A_TITLE)action=title_run();
-        else if(action==A_DEMO)action=game_run(1);
-        else action=splash_run();
+        else if(action==A_DEMO){demo_runs++;action=game_run(1);}
+        else {splash_runs++;action=splash_run();}
     }
 }
 int main(int argc,char **argv)
@@ -530,14 +532,15 @@ int main(int argc,char **argv)
     if(test_mode==1)return selftest();
     if(test_mode>=2)return simulate(test_mode==2);
     gfx_init();lanes_init();
-    cache=(unsigned char far *)_fmalloc(CACHE_BYTES);cache_used=TUN_BW*TUN_ROWS;
+    cache=(unsigned char far *)_fmalloc(CACHE_BYTES);cache_used=0;
+    fx_init();rz_init();
     words_init();
     r.h.ah=15;int86(0x10,&r,&r);old_mode=r.h.al;
     if(DosSoundAcquire(DS_PSG)) {
         puts("Sound owner refused: requires exclusive plain Tandy DOS.");return 3;
     }
     owned=1;atexit(cleanup);key_install();
-    if(clk_virtual)psg_log=fopen("PSG.LOG","w");
+    if(clk_virtual){psg_log=fopen("PSG.LOG","w");pal_log=fopen("PAL.LOG","w");}
     mode(9);video_owned=1;
     psg_mute_all();
     if(auto_mode>=10 && auto_mode<=13) {
@@ -590,7 +593,9 @@ int main(int argc,char **argv)
         fprintf(log,"memory states=%u chart=%u judged=%u segs=%u keyboard=%u; PIT0 unchanged\n",
             (unsigned)sizeof(music),(unsigned)sizeof(chart),(unsigned)sizeof(judged),(unsigned)sizeof(segs),
             (unsigned)(sizeof(down)+sizeof(queue)+sizeof(queue_tick)));
-        fprintf(log,"prof lanes=%lu caps=%lu pulses=%lu stars=%lu hud=%lu rows=%u\n",prof[0]>>8,prof[1]>>8,prof[2]>>8,prof[3]>>8,prof[4]>>8,rows_written);
+        fprintf(log,"prof lanes=%lu caps=%lu hud=%lu fx=%lu rows=%u\n",prof[0]>>8,prof[1]>>8,prof[2]>>8,prof[3]>>8,rows_written);
+        fprintf(log,"fx_scenes_seen=%04x fx_switches=%u fx_lite=%u fx_buffer=%d demos=%u splashes=%u\n",
+            fx_seen_mask,fx_switches,fx_lite,fxbuf!=0,demo_runs,splash_runs);
         fprintf(log,"cleanup_owned=%d keyboard_owned=%d video_owned=%d speaker_low=%u\n",
             owned,keyboard_owned,video_owned,inp(0x61)&3);
         fclose(log);

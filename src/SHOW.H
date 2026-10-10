@@ -8,7 +8,6 @@
 #define A_DEMO 3
 #define A_SPLASH 4
 #define ATTRACT_TICKS 364
-static unsigned frame_no;
 static void dump_frame(const char *name)
 {
     FILE *f;unsigned y,x;unsigned char row[160];unsigned char far *p;
@@ -28,9 +27,14 @@ static void frame_end(void)
 {
     char name[16];
     if(clk_virtual) {
+        pal_flush();
         sprintf(name,"F%05u.RAW",frame_no++);dump_frame(name);
         clk_vtime+=RENDER_STEP;
-    } else if(frame_cost<64)vsync_wait();
+    } else if(frame_cost<64 || !vsync_on) {
+        vsync_wait();pal_flush();
+    } else if(inp(0x3da)&8)pal_flush();
+    /* Palette writes only land in vertical blank. A slow frame skips the
+       retrace wait, so it flushes only if it happens to end inside one. */
     /* A frame that took over a quarter tick (14 ms) does not also wait out
        a retrace: on slow machines tearing costs less than lost frames. */
 }
@@ -45,7 +49,7 @@ static int show_keys(int other)
     unsigned k;
     while((k=key_take(0))!=0) {
         idle_since=clk_ticks();
-        if(k==1)return A_EXIT+100;
+        if(k==1){exit_reason=1;return A_EXIT+100;}
         if(k==57)return A_PLAY+100;
         if(k==50){reduced=!reduced;calm_badge();}
         else if(other)return other+100;
@@ -92,6 +96,7 @@ static int splash_run(void)
 {
     unsigned long t0,t;int stage=0,action,i;Style st,big,sub;char one[2];
     static const int last_char=sizeof(splash_q)-2;
+    pal_default();pal_flush();
     sfx_stop();
     if(!no_logo && (action=logo_show())!=0)return action-100;
     clear_screen();calm_badge();
@@ -221,6 +226,7 @@ static void sun_draw(void)
 static void title_draw(void)
 {
     Style st;unsigned i;int x,y;
+    pal_default();pal_flush();
     clear_screen();
     for(i=0;i<60;i++)px((int)(rnd()%320),(int)(rnd()%100),(i&3)?8:7);
     sun_draw();

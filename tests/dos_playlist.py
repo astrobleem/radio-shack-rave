@@ -27,8 +27,10 @@ def main():
         batch += [f'RSRAVE LONG.RBG /{mode} /SHOT','if errorlevel 1 goto failed',
                   f'copy RUNLOG.TXT EV\\{mode}.LOG > nul',f'copy AUDIO.TXT EV\\{mode}.TXT > nul',
                   f'copy FRAME.RAW EV\\{mode}.RAW > nul']
+    # Escape in the demo returns to the title; a second Escape there exits.
+    # DEMO waits past the first demo, which now returns to the splash.
     for folder,wait in [('EMPTY',3),('INVALID',3),('DEMO',12)]:
-        batch += ['cd '+folder,f'AUTOTYPE -w {wait} esc','..\\RSRAVE /DEMO',
+        batch += ['cd '+folder,f'AUTOTYPE -w {wait} -p 2 esc esc','..\\RSRAVE /DEMO',
                   f'copy RUNLOG.TXT ..\\EV\\{folder}.LOG > nul','cd ..']
     # AUTOTYPE Start joins the previous worker. A comma-only zero-delay sequence
     # touches no key events and lets the Escape break finish before shutdown.
@@ -66,7 +68,9 @@ def main():
         else:
             assert f['reason']=='1' and int(f['IRQ1'])>0 and int(f['makes'])>0
             if mode in ['EMPTY','INVALID']:assert f['title']=='ORIGINAL'
-            else:assert int(f['music_updates'])>=4 and f['hits']=='1' and f['lead_attacks']=='1'
+            else:
+                assert int(f['music_updates'])>=2 and f['hits']=='1' and f['lead_attacks']=='1'
+                assert f['demos']=='1' and int(f['splashes'])>=1,(f['demos'],f['splashes'])
     report={'result':'PASS original synthetic native playlist/word fixtures',
             'runtime_sha256':hashlib.sha256(a.runtime.read_bytes()).hexdigest(),'cases':logs,
             'physical':'Not tested; emulator cycles are not physical speed evidence'}

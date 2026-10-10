@@ -1,7 +1,7 @@
 {
-  "status": "EXPERIMENTAL; LOCAL_SOURCE_TESTED; EXACT_HEAD_CI_REQUIRED_FOR_FIXED_TOOLCHAIN_RUNTIME",
-  "engine": "v6 showcase + lazy playlist/demo + word rotation",
-  "runtime_sha256": "d3f13a1acf9dd39778c0b335e46f361297bd7bde7a0b6a0834510155c80bbcc6",
+  "status": "EXPERIMENTAL; EMULATOR_TESTED; EXACT_HEAD_CI_REQUIRED_FOR_FIXED_TOOLCHAIN_RUNTIME",
+  "engine": "v6 showcase + playlist/demo + word rotation + left-panel effects (palette cycling, DJ Alfredo)",
+  "runtime_sha256": "958808e2d9daa02ebd512ac744a564232680d2ea8ba02ca00baa8481d08d5a1e",
   "toolchains": {
     "bundled_runtime": "Official OpenWatcom2 2026-10-01-Build, fresh Linux CI artifact; strict rebuild comparison enabled",
     "CI": "Official immutable date tag2026-10-01-Build; SHA256 independently downloaded and verified before pinning"
@@ -18,10 +18,11 @@
     "directory_matches": 1024,
     "chart_notes": 512,
     "states": 1024,
-    "word_cache_used": 12525,
-    "word_cache_bytes": 14336,
-    "maximum_image_plus_allocation_bytes": 121600,
-    "PSP_environment_excluded": true
+    "word_cache_used": 8658,
+    "word_cache_bytes": 9216,
+    "maximum_image_plus_allocation_bytes": 152768,
+    "PSP_environment_excluded": true,
+    "fx_scene_buffer_bytes": 4800
   },
   "host_shutdown": "Local DOSBox-X2025.12.01 exited with0xC0000005 after guest logs completed; cause unresolved. Earlier0xC0000409 retained locally. Guest cleanup records pass independently.",
   "unimplemented": [
@@ -30,5 +31,42 @@
     "RMS VU"
   ],
   "physical": "No physical Tandy or4.77MHz performance/listening claim. Only original demo and synthetic fixtures published; private song media excluded.",
-  "local_tested_windows_runtime_sha256": "0649e8cbc32f5f08004b5811e3183d2d8c5c5d324cc3c828a24ad5e84ea4e8a9"
+  "local_tested_windows_runtime_sha256": "0649e8cbc32f5f08004b5811e3183d2d8c5c5d324cc3c828a24ad5e84ea4e8a9",
+  "left_panel": {
+    "scenes": [
+      "DJ ALFREDO",
+      "PLASMA",
+      "STARBURST+CUBE",
+      "TUNNEL+STARS",
+      "ROTOZOOM",
+      "COPPER",
+      "FLAG",
+      "GRID"
+    ],
+    "palette_cycled_logical_colors": [
+      3,
+      4,
+      7,
+      9
+    ],
+    "palette_writes": "Tandy video array 3DAh index 10h+n, 3DEh data, flushed in vertical blank",
+    "emulator_display_check": "DOSBox-X machine=tandy screen recorded on Xvfb with ffmpeg x11grab: cycled colors visible in the real emulated output",
+    "cpu_effects_budget": "24 fine units (~5 ms) per frame credit, capped at 72; rotozoom/flag skipped when the playfield alone averages over ~32 ms",
+    "slow_emulator_comparison": {
+      "setting": "DOSBox-X fixed 450 cycles, /AUTO original song (not calibrated to physical hardware)",
+      "previous_v6": {
+        "hits": 64,
+        "frames": 608,
+        "avg_frame_ms": 49.1,
+        "worst_frame_ms": 113
+      },
+      "this_build": {
+        "hits": 64,
+        "frames": 649,
+        "avg_frame_ms": 44.0,
+        "worst_frame_ms": 113
+      }
+    },
+    "calm": "no cycling, no motion, no scene changes; still figure drawn once"
+  }
 }

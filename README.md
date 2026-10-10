@@ -7,10 +7,11 @@ three-voice PSG. Notes fall down three lanes; tap **Z / X / C** as they cross th
 hit line. Required notes only sound when you hit them; the rest of the melody and
 the backing keep playing either way.
 
-This feature branch extends the **v6 showcase engine** with a bounded song
-catalog, shuffled demo progression and varied judgment words. It retains an attract-mode splash, a title screen,
-a kiosk demo loop, smooth-scrolling playfield, hit bursts, live PSG meters and a
-graded results card. There is no official Radio Shack sponsorship or affiliation.
+The **v6 showcase engine**: an attract-mode splash, a title screen, a kiosk demo
+loop, a bounded shuffled song catalog, smooth-scrolling playfield, hit bursts,
+live PSG meters, varied judgment words, a graded results card, and a left-panel
+effects window starring DJ Alfredo. There is no official Radio Shack sponsorship
+or affiliation.
 
 | | |
 | --- | --- |
@@ -33,14 +34,24 @@ Python is needed on the DOS machine.
 | Esc | exit to DOS | back to title | back to title |
 
 Leave the title alone for 20 seconds and the store demo starts: the game plays
-itself with a "DEMO" banner and shows its results. When `SONGS` contains
-usable charts, the demo loads the next shuffled song after the results interval.
-With only `ORIGINAL.RBG`, it retains the original splash loop.
-Space jumps from the demo straight into a real game.
+itself with a "DEMO" banner, shows its results and returns to the splash, so the
+full attract loop repeats like a store kiosk. With a `SONGS` folder each loop
+plays the next shuffled song, and the title always names the song that Space
+(or the next demo) will play. Space jumps from the demo straight into a real
+game; Escape in the demo goes back to the title.
 
-**Calm mode** stops all background motion (tunnel pulses, star streaks, title
-floor, marquee, twinkle, burst particles). Notes, judgments and text still
-appear. There is no strobe in either mode.
+**Calm mode** stops all background motion (left-panel effects and palette
+cycling, title floor, marquee, twinkle, burst particles). Notes, judgments and
+text still appear. There is no strobe in either mode.
+
+### The left panel
+
+A framed window beside the lanes changes scene every two bars and keeps
+rotating across songs: **DJ Alfredo** on the decks, plasma, a spiral starburst
+with a rotating wireframe cube, a starfield tunnel, a rotozoomer, copper bars,
+a waving checkered flag and a synthwave grid floor.
+
+![Left panel scenes](evidence/LEFTFX/scenes.png)
 
 Timing allows three BIOS ticks either side (about 165 ms). Within one tick is
 AWESOME (100 points), two or three ticks is NICE (60), plus a combo bonus up to
@@ -75,7 +86,7 @@ converter writes a deterministic report JSON and normalized event JSON too.
 The v6 format is **RBG4**: RBG3 plus a 24-character title, the difficulty and
 a beat grid (runs of equally spaced quarter-note beats in 16.16 BIOS ticks,
 taken from the MML tempo map). The grid drives the scrolling beat and bar lines
-and the tunnel pulses. RBG2 and RBG3 files still load; they get no beat grid
+and keeps the left-panel effects on the beat. RBG2 and RBG3 files still load; they get no beat grid
 and use the file name as their title.
 
 Existing RBG2/RBG3 song files can be used directly with this branch: copy them
@@ -87,8 +98,8 @@ Local-only compatibility checks cover the preserved library; those song files
 and their audio/notation are not included in public artifacts.
 
 The Watcom cross-build now applies a checked 4096-paragraph extra DOS allocation
-cap, matching the intent of the MSC6 linker cap. The 9 KB far cache fits within
-that budget. This is an allocation bound, not a physical CPU performance claim.
+cap, matching the intent of the MSC6 linker cap. The 9 KB far cache and 4.8 KB
+scene buffer fit within that budget. This is an allocation bound, not a physical CPU performance claim.
 
 Bounded ArcheAge-style MML profile: optional `MML@...;`, case-insensitive notes,
 rests, sharps/flats, octaves, lengths, dots, tempo, volume, same-pitch ties and
@@ -121,8 +132,26 @@ in `music`.
   gem row, burst row). A frame builds wanted codes, then rewrites only rows that
   differ, as whole bytes. Text, panels and spans use `REP STOSB/MOVSB` through
   the far string routines; row addresses come from a table, not an 8088 `MUL`.
-* **Far cache.** The static tunnel, key caps and outlined judgment words are
-  rendered once into a 9 KB far block (within `LINK /CP:4096`) and blitted.
+* **Palette cycling.** Logical colors 3, 4, 7 and 9 appear only inside the
+  left-panel window; nothing else on the playfield or results card uses them
+  (CI checks this on a captured frame). Each scene is a precomputed map of
+  cycle phases, ordered-dithered between phases so motion looks continuous,
+  generated offline by `tools/gen_fx.py` into `src/FXDATA.H`. Animating it is
+  four Tandy palette register writes (index `10h+n` to `3DAh`, color to `3DEh`)
+  in vertical blank, whatever the size of the effect. Plasma, starburst,
+  tunnel, copper bars, sky, spotlights, speaker cones and spinning platters
+  all move this way. Title and splash restore the default palette.
+* **CPU effects on a budget.** The cube, starfield, rotozoomer (4x2-pixel
+  cells drawn in bands), waving flag (two-pixel columns on a travelling sine,
+  shaded by slope) and DJ Alfredo (redrawn only when his pose changes) run
+  after the lanes and HUD, spending a per-frame time credit. A slow machine
+  refreshes them less often, and if the playfield alone is running long the
+  rotozoomer and flag are skipped. Judgment and audio never read anything in
+  the window. Scene changes are a two-pass curtain: the old scene scans out
+  to black, the new one scans in.
+* **Far cache.** Key caps and outlined judgment words are rendered once into a
+  9 KB far block, and the current scene is decoded into a 4.8 KB far buffer
+  used to restore pixels under moving figures (all within `LINK /CP:4096`).
 * **Frame pacing.** Each frame starts at vertical retrace; a frame that ran
   longer than a quarter tick skips the wait instead of losing another.
 * Exit restores video mode, IRQ1, sound ownership and the speaker; PIT0 is
@@ -155,9 +184,13 @@ toolchain at C:, this package at D: and a scratch directory at E:.
 ### Captures and video
 
 `RSRAVE /TOUR` runs splash, title, demo and results on a virtual clock, saving
-every frame (`Fnnnnn.RAW`, half a tick apart) and every PSG write (`PSG.LOG`).
-`python tools/tour_video.py CAPTURE_DIR rave.mp4` turns that into a frame-exact
-video with re-synthesized PSG audio (needs numpy and ffmpeg). `/RENDER` applies
+every frame (`Fnnnnn.RAW`, half a tick apart), every PSG write (`PSG.LOG`) and
+every palette change (`PAL.LOG`). `python tools/tour_video.py CAPTURE_DIR
+rave.mp4` turns that into a frame-exact video with the palette applied and
+re-synthesized PSG audio (needs numpy and ffmpeg).
+
+`python tools/gen_fx.py` regenerates the left-panel data (`--preview DIR`
+writes PNGs); the host checks fail if `src/FXDATA.H` is stale. `/RENDER` applies
 the virtual clock to any mode.
 
 ### Diagnostic switches
@@ -188,14 +221,15 @@ playback. Invalid or disappeared candidates are disabled; empty/all-invalid
 catalogs fall back to `ORIGINAL.RBG`. If that also fails, hardware is untouched.
 Files beyond the candidate limit require explicit selection or a smaller folder.
 Space starts real play on the current demo song; R retries current real play.
-Escape during demo exits to DOS; Escape during real play returns to the title.
+Escape during the demo or real play returns to the title; Escape at the title
+or splash exits to DOS.
 Explicit filenames and scripted diagnostics bypass discovery. Normal play writes
 no logs and performs no SHA checks.
 
-Great judgments rotate RAD!, SWEET!, STELLAR!, NAILED!, RIGHTON! and WICKED!;
+Great judgments rotate RAD!, SWEET!, STELLAR!, NAILED!, LETS GO! and WICKED!;
 misses rotate OOPS!, WHIFF!, WHOOPS! and AGAIN!. NICE! is unchanged. Timing,
 scoring, original Claude font/color/shadow/pop placement and gameplay randomness
-are unchanged. Precomputed sprite cache uses 12,525 of 14,336 bytes.
+are unchanged. Precomputed sprite cache uses 8,658 of 9,216 bytes.
 
 ![Synthetic hit fixture](evidence/PLAYLIST/hit.png)
 ![Synthetic miss fixture](evidence/PLAYLIST/miss.png)
