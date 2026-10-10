@@ -314,7 +314,7 @@ static void caps_frame(void)
 /* HUD panel, meters, words, progress. */
 static unsigned long hud_score;
 static unsigned hud_combo,hud_best,hud_hits,hud_misses,hud_acc,hud_prog,hud_word,hud_demo;
-static unsigned meter_lvl[3],meter_shown[3],hud_seen;
+static unsigned meter_lvl[4],meter_shown[4],hud_seen;
 static int hud_score_tick;
 static int meter_tick;
 /* Playfield and results never use logical 3, 4, 7 or 9: the left panel
@@ -449,16 +449,17 @@ static void hud_frame(int now)
         hud_prog=v;
     }
     if(no_fx)return;
-    for(l=0;l<3;l++) {
+    for(l=0;l<4;l++) {
         if(!l)lvl=lead_div?15-lead_att:0;
+        else if(l==3)lvl=drum_kind!=255?15-drum_att:0;
         else lvl=(prev_div[l] && prev_div[l]!=65535 && prev_att[l]<15)?15-prev_att[l]:0;
         lvl=(lvl*12+14)/15;
         if(lvl>=meter_lvl[l])meter_lvl[l]=lvl;else meter_lvl[l]--;
         if(meter_lvl[l]==meter_shown[l])continue;
         for(s=0;s<12;s++) {
             if((s<meter_lvl[l])==(s<meter_shown[l]) && meter_shown[l]!=255)continue;
-            if(s<meter_lvl[l])fill(252+l*20,136-s*4,14,3,s<7?10:(s<10?14:12));
-            else {fill(252+l*20,136-s*4,14,3,0);span(252+l*20,137-s*4,14,8);}
+            if(s<meter_lvl[l])fill(244+l*18,136-s*4,14,3,s<7?10:(s<10?14:12));
+            else {fill(244+l*18,136-s*4,14,3,0);span(244+l*18,137-s*4,14,8);}
         }
         meter_shown[l]=meter_lvl[l];
     }
@@ -469,7 +470,7 @@ static void hud_reset(void)
     hud_score=1;hud_combo=65535;hud_best=hud_hits=hud_misses=65535;
     hud_acc=65535;hud_prog=0;hud_seen=65535;hud_word=65535;hud_demo=0;
     milestone_until=-32767;milestone_last=0;meter_tick=-32767;
-    for(l=0;l<3;l++){meter_lvl[l]=0;meter_shown[l]=255;}
+    for(l=0;l<4;l++){meter_lvl[l]=0;meter_shown[l]=255;}
     if(score==0)hud_score=1;
 }
 static const char *diff_name(void)
@@ -511,8 +512,9 @@ static void scene_draw(void)
     }
     bevel(222,17,96,56,11,1,0);
     text(228,21,"SCORE",8,0);text(228,46,"COMBO",8,0);
-    text(226,80,"PSG",8,0);
-    for(l=0;l<3;l++){line[0]="ABC"[l];line[1]=0;text(256+l*20,80,line,lane_fg[l],0);}
+    text(222,80,"PSG",8,0);
+    /* A B C tones and N, the noise channel that carries the drums. */
+    for(l=0;l<4;l++){line[0]="ABCN"[l];line[1]=0;text(248+l*18,80,line,l<3?lane_fg[l]:15,0);}
     text(4,193,"ESC MENU  R RETRY  M CALM",8,0);
     hud_reset();
 }
@@ -520,9 +522,9 @@ static unsigned long prof[4];
 static void playfield_frame(long nowf,int now)
 {
     unsigned long t0=clk_fine(),t1,start=t0;
-    lanes_frame(nowf,now);t1=clk_fine();prof[0]+=t1-t0;t0=t1;
+    lanes_frame(nowf,now);audio_poll();t1=clk_fine();prof[0]+=t1-t0;t0=t1;
     caps_frame();t1=clk_fine();prof[1]+=t1-t0;t0=t1;
-    hud_frame(now);t1=clk_fine();prof[2]+=t1-t0;t0=t1;
+    hud_frame(now);audio_poll();t1=clk_fine();prof[2]+=t1-t0;t0=t1;
     fx_frame(nowf,(unsigned)(t1-start>65535UL?65535UL:t1-start));
     prof[3]+=clk_fine()-t0;
 }
@@ -538,6 +540,10 @@ static char grade_letter(void)
     if(a>=700)return 'C';
     return 'D';
 }
+/* The high score lines (HISCORE.H) take over the card's bottom rows when a
+   run earns a place. */
+static int hs_state;
+static void hs_draw(void);
 static void results_frame(int age)
 {
     Style st;char buf[24],g[2];const char *head;unsigned a;
@@ -556,7 +562,7 @@ static void results_frame(int age)
         case 2:sprintf(buf,"NICE     %4u",fx_nice);text(128,82,buf,10,0);sfx_blip(79);break;
         case 3:sprintf(buf,"MISS     %4u",misses);text(128,92,buf,12,0);sfx_blip(81);break;
         case 4:sprintf(buf,"MAX COMBO%4u",best);text(128,102,buf,14,0);sfx_blip(84);break;
-        case 5:a=accuracy10();sprintf(buf,"ACCURACY%3u.%u%%",a/10,a%10);text(128,112,buf,15,0);sfx_blip(86);break;
+        case 5:a=accuracy10();sprintf(buf,"ACCURACY %3u.%u%%",a/10,a%10);text(128,112,buf,15,0);sfx_blip(86);break;
         case 6:sprintf(buf,"SCORE  %7lu",score);text(128,122,buf,15,0);sfx_blip(88);break;
         case 7:
             g[0]=grade_letter();g[1]=0;
@@ -569,9 +575,10 @@ static void results_frame(int age)
             break;
         case 8:
             if(demo_mode)text(center_x("PRESS SPACE TO PLAY",1),148,"PRESS SPACE TO PLAY",15,0);
-            else text(center_x("R RETRY    SPACE MENU",1),148,"R RETRY    SPACE MENU",8,0);
+            else if(!hs_state)text(center_x("R RETRY    SPACE MENU",1),148,"R RETRY    SPACE MENU",8,0);
             break;
         }
         results_step++;
     }
+    if(results_step>=9)hs_draw();
 }

@@ -53,6 +53,16 @@ a waving checkered flag and a synthwave grid floor.
 
 ![Left panel scenes](evidence/LEFTFX/scenes.png)
 
+### High scores
+
+Each song keeps its top five in `RAVE.HI` beside the game. When a real game
+earns a place, the results card asks for initials: type up to three letters,
+Enter saves, Backspace corrects, Escape skips. The title marquee names the
+song's top raver, and the store demo shows a **TOP RAVERS** page for a song
+that has scores before returning to the splash. Demos and scripted runs never
+record. Nothing is written unless you press Enter on your initials; a save to a
+write-protected floppy reports "not saved" and the game carries on.
+
 Timing allows three BIOS ticks either side (about 165 ms). Within one tick is
 AWESOME (100 points), two or three ticks is NICE (60), plus a combo bonus up to
 50. The grade is S (98%+, no misses), A (93%), B (85%), C (70%) or D.
@@ -75,7 +85,17 @@ Use Python 3 (standard library only) on a modern computer:
 
 ```
 python tools/import_score.py your-song.mml MYSONG.RBG --lead 1 --difficulty easy --title "My Song"
+python tools/import_score.py your-song.mml MYSONG.RBG --lead 1 --parts 1,2,3 --drums 4 --title "My Song"
 ```
+
+**Drums.** `--drums VOICE` takes an MML voice written as General MIDI
+percussion (the note number picks the drum, as on MIDI channel 10) and plays it
+on the PSG's fourth voice, the noise channel: kick 35-36, snare 37-40, closed
+hat 42/44 and small percussion, open hat 46, crash/ride 49-59, low and high
+toms. Volume sets each hit's level. Hits keep their BIOS tick; two on one tick
+keep the stronger (crash, snare, kick, toms, hats). Unmapped keys are rejected
+with their time. The drum voice is never used as a tone part and the fourth
+PSG meter (N) shows it. A file with drums is **RBG5**: RBG4 plus a drum table.
 
 Copy your own or licensed RBG files into `SONGS` beside the executable. `PLAY`
 uses a shuffled bag; two or more usable tracks do not immediately repeat across
@@ -106,9 +126,15 @@ rests, sharps/flats, octaves, lengths, dots, tempo, volume, same-pitch ties and
 up to eight comma voices. Defaults O4/L4/T120/V100 are reported. Tempo conflicts,
 unknown syntax, overflow and unsupported effects fail with explanatory errors.
 Selected PSG voices must fit MIDI 45..96; use explicit transposition, never
-clamping. Up to three tones are selected; no invented noise/percussion layer.
-Runtime bounds are 512 lead events, 1024 backing states, 64 tempo runs and
-600 seconds. Longer or denser scores need explicit arrangement choices.
+clamping. Up to three tones are selected; percussion only from an explicit
+`--drums` voice, never invented.
+Runtime bounds are 2048 lead events, 4096 backing states, 4096 drum hits,
+64 tempo runs and 600 seconds; MML sources up to 128 KB. These were 512 lead
+events and 1024 backing states, which is why a five-minute song such as a full
+arrangement had to be split. The song tables now live in far memory, sized to
+each song as it loads, so short songs cost no more than before and a long one
+loads whole. On a machine without enough free memory for a given song, the
+game says so instead of loading it.
 
 The original 32-second composition **Circuit After Hours** has 128 lead onsets:
 64 required taps and 64 automatic notes. Its source MML and permissive grant are
@@ -149,6 +175,17 @@ in `music`.
   rotozoomer and flag are skipped. Judgment and audio never read anything in
   the window. Scene changes are a two-pass curtain: the old scene scans out
   to black, the new one scans in.
+* **Songs in far memory.** Backing states, lead notes, judgments and drum
+  hits are allocated in far memory when a song loads, grown only when a bigger
+  song arrives. Small-model stdio reads near buffers, so the loader fills the
+  far tables through a 512-byte bounce buffer. The 64 KB near segment no
+  longer holds any song data.
+* **Drum channel.** A drum hit writes the noise control (periodic or white,
+  shift rate), which restarts the shift register for a clean attack, then
+  decays linearly in fine time rather than in 55 ms ticks. Audio (lead,
+  backing, drums) is also serviced between the playfield's drawing stages,
+  so a slow frame no longer delays it by the whole frame; a hit noticed up to
+  a tick late still plays in full.
 * **Far cache.** Key caps and outlined judgment words are rendered once into a
   9 KB far block, and the current scene is decoded into a 4.8 KB far buffer
   used to restore pixels under moving figures (all within `LINK /CP:4096`).
@@ -176,7 +213,11 @@ original song.
 native diagnostic cases inside DOSBox-X (`machine=tandy`), headless. Every
 audio trace (all-hit, all-miss, calm, retry, input spam, and the three
 simulations) must be byte-identical to the recorded v5 native evidence, and
-every exit path must restore video, keyboard, sound and speaker.
+every exit path must restore video, keyboard, sound and speaker. It then runs
+`tests/dos_songs.py` (a dense 70-second song past the old caps played to the
+last note, and a drum song whose live and simulated hits must equal the
+converter's table) and `tests/dos_hiscore.py` (ranks and ties, a full board,
+a malformed and an unwritable `RAVE.HI`, and that scripted play never writes).
 
 `tests\NATIVE.BAT` reproduces the same cases natively with your own MSC6
 toolchain at C:, this package at D: and a scratch directory at E:.
@@ -197,9 +238,11 @@ the virtual clock to any mode.
 
 `/AUTO /MISS /RETRY /ESC /SPAM /HESC /EARLY /REF` scripted games; `/TEST`
 core self-test; `/SIMH /SIMM /SIMR` simulations; `/SPLASH /SSKIP /SESC /SCALM`
-splash checks; `/SHOT` frame dump; `/DEMO` start in the attract demo; `/CALM`,
-`/FXOFF`, `/NOLOGO`, `/NOVSYNC`. Only scripted runs write log files; an ordinary
-game writes nothing, so it runs from a write-protected floppy.
+splash checks; `/SHOT` frame dump; `/DEMO` start in the attract demo;
+`/HISCORE` autoplay that enters initials CLD; `/CALM`, `/FXOFF`, `/NOLOGO`,
+`/NOVSYNC`. Only scripted runs write log files. An ordinary game writes only
+`RAVE.HI`, and only after you enter initials, so it runs from a
+write-protected floppy.
 
 ## Status
 

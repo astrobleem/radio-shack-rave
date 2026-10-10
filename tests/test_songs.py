@@ -122,6 +122,11 @@ static void mode(unsigned n){restored_mode=n;}
 static void lead_step(int n){(void)n;}
 static void automatic_step(int n){(void)n;}
 static void music_step(int n){(void)n;}
+static void drums_step(long n){(void)n;}
+#define HS_ENTER 1
+static int hs_state,hs_begun;
+static int hs_entry_key(unsigned k){(void)k;return 0;}
+static void hs_begin(int d){(void)d;hs_begun++;}
 static int song_time(void){return (int)(clock_tick-origin)-36;}
 static long song_fine(void){return (long)song_time()*256;}
 static int fine_tick(long n){return (int)(n/256);}
@@ -153,6 +158,7 @@ int main(void) {
  assert(song_prepare());assert(loads==1);
  /* The attract loop: a finished demo returns to the splash. */
  assert(game_run(1)==A_SPLASH);assert(resets==1 && !song_ready && clock_tick>=153);
+ assert(hs_begun==1); /* results always offer the high score table a look */
  assert(song_prepare());assert(loads==2 && cancels==2 && stops==2);
  key_once=57;key_at=clock_tick;assert(game_run(1)==A_PLAY);assert(song_ready);
  assert(song_prepare());assert(loads==2); /* Space retains demo song. */

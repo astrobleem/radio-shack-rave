@@ -57,7 +57,7 @@ class Retention(unittest.TestCase):
   self.assertTrue(any(line==f'L {notes[1][0]} {notes[1][2]} {notes[1][4]}' for line in hit))
  def test_bounds_do_not_silently_drop_notes(self):
   with self.assertRaisesRegex(ScoreError,'total lead events'):
-   convert('t120o4l8'+'c'*513,difficulty='easy')
+   convert('t120o4l8'+'c'*2049,difficulty='easy')
  def test_beat_grid_follows_tempo_changes(self):
   b=convert(FIXTURES['changing_tempo'],lead=1)[0]
   end,ns,nt=struct.unpack_from('<HHH',b,6);segs=struct.unpack_from('<H',b,12)[0]

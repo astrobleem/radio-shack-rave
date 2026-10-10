@@ -33,6 +33,9 @@ def main():
         (a.keep/'BUILD.json').write_text(json.dumps(build,indent=2)+'\n')
     assert (work/'RSRAVE.EXE').read_bytes()==(root/'runtime/RSRAVE.EXE').read_bytes(), 'Fresh CI binary differs from pinned runtime; retained build is not yet native-qualified'
     subprocess.run([sys.executable,str(root/'tests/dos_playlist.py'),'--runtime',str(work/'RSRAVE.EXE')]+(['--keep',str(a.keep/'playlist')] if a.keep else []),check=True)
+    # Far-memory long songs, the drum channel and the high score table.
+    for extra in ('dos_songs','dos_hiscore'):
+        subprocess.run([sys.executable,str(root/'tests'/(extra+'.py')),'--runtime',str(work/'RSRAVE.EXE')]+(['--keep',str(a.keep/extra)] if a.keep else []),check=True)
     shutil.copy(root/'runtime/ORIGINAL.RBG',work);shutil.copy(root/'tests/BAD.RBG',work)
     (work/'EV').mkdir()
     auto=['mount c '+str(work),'c:','RSRAVE BAD.RBG /TEST','if errorlevel 2 echo REJECTED>EV\\BAD.TXT']

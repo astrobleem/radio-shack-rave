@@ -1,7 +1,7 @@
 {
   "status": "EXPERIMENTAL; EMULATOR_TESTED; EXACT_HEAD_CI_REQUIRED_FOR_FIXED_TOOLCHAIN_RUNTIME",
-  "engine": "v6 showcase + playlist/demo + word rotation + left-panel effects (palette cycling, DJ Alfredo)",
-  "runtime_sha256": "958808e2d9daa02ebd512ac744a564232680d2ea8ba02ca00baa8481d08d5a1e",
+  "engine": "v6 showcase + playlist + left-panel effects + far-memory songs + drum channel + high scores",
+  "runtime_sha256": "2ad3fec1ddb89df81587c4ea4065855af65c9a3a7fcebd7b299bc6260fde13c2",
   "toolchains": {
     "bundled_runtime": "Official OpenWatcom2 2026-10-01-Build, fresh Linux CI artifact; strict rebuild comparison enabled",
     "CI": "Official immutable date tag2026-10-01-Build; SHA256 independently downloaded and verified before pinning"
@@ -20,9 +20,14 @@
     "states": 1024,
     "word_cache_used": 8658,
     "word_cache_bytes": 9216,
-    "maximum_image_plus_allocation_bytes": 152768,
+    "maximum_image_plus_allocation_bytes": 160512,
     "PSP_environment_excluded": true,
-    "fx_scene_buffer_bytes": 4800
+    "fx_scene_buffer_bytes": 4800,
+    "lead_notes": 2048,
+    "backing_states": 4096,
+    "drum_hits": 4096,
+    "song_tables": "far memory, allocated per song (grow-only): states*12 + notes*11 + drums*4 bytes; a 2048-note, 4096-state song needs about 72 KB more",
+    "hiscore_table_bytes": 3456
   },
   "host_shutdown": "Local DOSBox-X2025.12.01 exited with0xC0000005 after guest logs completed; cause unresolved. Earlier0xC0000409 retained locally. Guest cleanup records pass independently.",
   "unimplemented": [
@@ -68,5 +73,30 @@
       }
     },
     "calm": "no cycling, no motion, no scene changes; still figure drawn once"
+  },
+  "far_memory_songs": {
+    "emulator": "tests/dos_songs.py: 992 lead notes and 1270 backing states (old caps 512/1024) played to the last tick, every required note hit",
+    "memory": "not tested on a 256K machine; a song that does not fit is refused with a message"
+  },
+  "drum_channel": {
+    "format": "RBG5 = RBG4 + drum table (u16 count, u16 0, then u16 tick, u8 kind, u8 level)",
+    "kinds": [
+      "kick",
+      "snare",
+      "closed_hat",
+      "open_hat",
+      "crash",
+      "low_tom",
+      "high_tom"
+    ],
+    "emulator": "live and simulated hits equal the converter table; 33/33 at fixed 450 cycles after mid-frame audio polling (29/33 before)",
+    "audio_poll": "lead, backing and drums also serviced between playfield drawing stages; at fixed 450 cycles the original song audio trace now matches v5 native evidence byte for byte"
+  },
+  "hiscore": {
+    "file": "RAVE.HI (RHI1, up to 64 songs x top 5)",
+    "writes": "only after a real game earns a place and initials are confirmed with Enter; demos and scripted runs never write",
+    "critical_error": "INT 24h stub (mov al,3 / iret; ignore on DOS 2.x) installed only around file access",
+    "emulator": "tests/dos_hiscore.py: ranks 1-5 with ties below, full board, malformed file, unwritable file, scripted play writes nothing",
+    "not_tested": "a physical write-protected floppy (DOSBox-X cannot raise the critical error the same way)"
   }
 }

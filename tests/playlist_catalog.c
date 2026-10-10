@@ -5,21 +5,26 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <malloc.h>
 static void lead_output(int n,unsigned d,unsigned a){(void)n;(void)d;(void)a;}
+#define RAVE_FAR_TABLES
 #include "CORE.H"
 #include "SONGS.H"
-#define MAX_STATES 1024
+#define MAX_STATES 4096
 #define MAX_SEGS 64
+#define MAX_DRUMS 4096
 typedef struct {unsigned tick,divisor[3];unsigned char attenuation[3],reserved;} State;
 typedef struct {unsigned long start,period;unsigned first,count;} Seg;
-static State music[MAX_STATES];static Seg segs[MAX_SEGS];
+typedef struct {unsigned tick;unsigned char kind,level;} Drum;
+static State far *music;static Drum far *drums;static Seg segs[MAX_SEGS];
+static unsigned cap_states,cap_taps,cap_drums,ndrums,load_nomem;
 static unsigned states,duration,nsegs,difficulty;
 static char song_title[26];
 #include "VALIDATOR.H"
 static unsigned loads;
 static int counted(const char *p){loads++;return load_score(p);}
 int main(void){unsigned i,j,prev=SONG_MAX,seen[SONG_MAX];char path[19];
- assert(sizeof(State)==12 && sizeof(Tap)==10 && sizeof(Seg)==12);
+ assert(sizeof(State)==12 && sizeof(Tap)==10 && sizeof(Seg)==12 && sizeof(Drum)==4);
  assert(!_chdir("EMPTY"));songs_reset(17);songs_discover();
  assert(!song_count && !songs_next(counted));assert(load_score("ORIGINAL.RBG"));assert(!_chdir(".."));
  assert(!_chdir("INVALID"));songs_reset(17);songs_discover();

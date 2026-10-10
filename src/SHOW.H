@@ -150,7 +150,7 @@ static int splash_run(void)
 #define MARQ_Y 191
 static unsigned char floor_shown[FLOOR_BOT-HORIZON];
 static unsigned marq_shown;
-static char marquee[120];
+static char marquee[160];
 static int marq_len;
 static unsigned char twinkle_x[24],twinkle_y[24];
 static unsigned twinkle_n;
@@ -240,9 +240,14 @@ static void title_draw(void)
     text(36+32*6,158,"BANGERS.",14,0);
     text(center_x("Z X C ON THE BEAT    M CALM    ESC EXIT",1),180,
         "Z X C ON THE BEAT    M CALM    ESC EXIT",8,0);
-    sprintf(marquee,"   NOW PLAYING: %s  *  TANDY 1000 3-VOICE SOUND  *  "
-        "16 COLORS AT 320X200  *  HIT THE NOTES, HEAR THE MELODY  *",
-        song_title[0]?song_title:"UNTITLED");
+    {
+        const HsRow *top=hs_top();char best[40];
+        best[0]=0;
+        if(top)sprintf(best,"  *  TOP RAVER: %.3s %lu",top->ini,top->score);
+        sprintf(marquee,"   NOW PLAYING: %s%s  *  TANDY 1000 SOUND  *  "
+            "16 COLORS AT 320X200  *  HIT THE NOTES, HEAR THE MELODY  *",
+            song_title[0]?song_title:"UNTITLED",best);
+    }
     marq_len=strlen(marquee);marq_shown=1;
     twinkle_n=0;
     for(i=0;i<200 && twinkle_n<24;i++) {
@@ -279,6 +284,37 @@ static int title_run(void)
             return action-100;
         }
         if(t-idle_since>=(tour_mode?120UL:(unsigned long)ATTRACT_TICKS))return A_DEMO;
+        frame_end();
+    }
+}
+/* Attract loop page: the top five for the song just demoed. */
+static int scores_run(void)
+{
+    static const unsigned char rank_col[HS_TOP]={14,15,11,11,11};
+    Style st;char buf[40];unsigned k,b,shown=2;unsigned long t0,t;int action,i;const HsRow *r;
+    i=hs_find(hs_key());
+    if(i<0)return A_SPLASH;
+    sfx_stop();pal_default();pal_flush();clear_screen();
+    style(&st,2,15,1,NO_COLOR,NO_COLOR);st.rows=rows_chrome;st.nrows=11;
+    fancy(center_x("TOP RAVERS",2),20,"TOP RAVERS",&st);
+    text(center_x(song_title,1),48,song_title,11,0);
+    span(60,60,200,5);
+    for(k=0;k<HS_TOP;k++) {
+        r=&hs_tab[i].row[k];
+        if(!r->score)break;
+        sprintf(buf,"%u. %.3s  %07lu  %c  %3u.%u%%",k+1,r->ini,r->score,r->grade,r->acc/10,r->acc%10);
+        text(center_x(buf,1),72+k*16,buf,rank_col[k],0);
+    }
+    calm_badge();
+    sfx_chord(72,76,79,4,2,16);
+    t0=clk_ticks();
+    for(;;) {
+        t=clk_ticks()-t0;
+        b=(reduced || (t/9)&1)?15:7;
+        if(b!=shown){shown=b;text(center_x("PRESS SPACE TO RAVE",1),170,"PRESS SPACE TO RAVE",b,0);}
+        sfx_step();
+        if((action=show_keys(A_TITLE))!=0)return action-100;
+        if(t>=110)return A_SPLASH;
         frame_end();
     }
 }

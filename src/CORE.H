@@ -1,5 +1,5 @@
 /* Deterministic judgment core. Times are BIOS elapsed ticks, never frames. */
-#define MAX_NOTES 512
+#define MAX_NOTES 2048
 #define WINDOW 3
 #ifndef RAVE_JUDGMENT
 #define RAVE_JUDGMENT(kind,now) ((void)0)
@@ -8,8 +8,14 @@ typedef struct {
     unsigned tick, end_tick, divisor;
     unsigned char lane, attenuation, note, reserved;
 } Tap;
+#ifdef RAVE_FAR_TABLES
+/* DOS build: allocated in far memory per song by the loader. */
+static Tap far *chart;
+static unsigned char far *judged;
+#else
 static Tap chart[MAX_NOTES];
 static unsigned char judged[MAX_NOTES];
+#endif
 static unsigned taps, combo, best, hits, misses, ghosts;
 static unsigned long score;
 static unsigned lead_div,lead_att,lead_attacks,lead_releases;
