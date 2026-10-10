@@ -1,4 +1,5 @@
 import unittest,sys,json,tempfile,io,contextlib
+from unittest.mock import patch
 from fractions import Fraction as F
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -80,11 +81,38 @@ class MidiToMml(unittest.TestCase):
   v,_,_=parse(text.strip(),parts_only=True);n=[x for x in v[0] if x['note']]
   self.assertEqual([(x['end']-x['start'])*2 for x in n],[F(7,4),F(5,4)])
  def test_source_limit_and_tempo_guards(self):
-  long=[(i*24,i*24+24,60+(i*7%13)+12*(i%2)) for i in range(9000)]
-  code,_,err,_=self.run_tool(smf([(0,long)]),'--voice','1:top')
-  self.assertEqual(code,1);self.assertIn('exceeds the 8192-byte',err)
+  data,_=midi_from_original()
+  with patch.object(m2m,'MAX_BYTES',64):
+   code,_,err,_=self.run_tool(data,'--voice','1:top')
+  self.assertEqual(code,1);self.assertIn('exceeds the 64-byte',err)
   code,_,err,_=self.run_tool(smf([(0,[(0,96,60)])],bpm=20),'--voice','1:top')
   self.assertEqual(code,1);self.assertIn('outside 32..255',err)
  def test_reader_rejects_non_midi(self):
   with self.assertRaises(m2m.MidiError):m2m.read_smf(b'not midi at all')
+ def test_truncated_files_and_invalid_headers_are_clean_errors(self):
+  data=smf([(0,[(0,96,60)])])
+  for end in range(len(data)):
+   with self.subTest(end=end),self.assertRaises(m2m.MidiError):m2m.read_smf(data[:end])
+  for offset,value in [(4,b'\0\0\0\0'),(10,b'\0\0'),(12,b'\0\0')]:
+   bad=bytearray(data);bad[offset:offset+len(value)]=value
+   with self.assertRaises(m2m.MidiError):m2m.read_smf(bad)
+  with self.assertRaises(m2m.MidiError):m2m._vlq(b'\x80'*5,0)
+ def test_empty_bad_arguments_and_long_span(self):
+  for data,args in [(smf([]),()),(smf([(0,[(0,96,60)])]),('--from-bar','0')),
+                    (smf([(0,[(0,96,60)])]),('--volume','128')),
+                    (smf([(0,[(0,96,60)])]),('--tempo','0')),
+                    (smf([(0,[(0,96*2000,60)])]),())]:
+   code,_,err,text=self.run_tool(data,'--voice','1:top',*args)
+   self.assertEqual(code,1);self.assertIn('error:',err);self.assertEqual(text,'')
+  for spec in ['1..1:top','1.0:top','1.17:top','1+:top']:
+   code,_,err,_=self.run_tool(smf([(0,[(0,96,60)])]),'--voice',spec)
+   self.assertEqual(code,1);self.assertIn('error:',err)
+ def test_far_memory_limits_and_failed_check_does_not_write(self):
+  notes=[(i*24,i*24+24,60+(i*7%13)+12*(i%2)) for i in range(1800)]
+  data=smf([(0,notes),(1,notes),(2,notes)])
+  code,_,err,text=self.run_tool(data,'--voice','1:top','--voice','2:top','--voice','3:top','--check')
+  self.assertEqual(code,0,err);self.assertGreater(len(text),8192)
+  over=[(i*24,i*24+24,60+i%2) for i in range(m2m.MAX_LEAD_EVENTS+1)]
+  code,_,err,text=self.run_tool(smf([(0,over)]),'--voice','1:top','--check')
+  self.assertEqual(code,1);self.assertIn('2048',err);self.assertEqual(text,'')
 if __name__=='__main__':unittest.main()

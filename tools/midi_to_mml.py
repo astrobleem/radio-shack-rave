@@ -29,10 +29,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mml import parse, ScoreError  # noqa: E402
+from import_score import MAX_LEAD
 
 LOW, HIGH = 45, 96
-MAX_BYTES = 8192
-MAX_LEAD_EVENTS = 512
+MAX_BYTES = 131072
+MAX_LEAD_EVENTS = MAX_LEAD
+MAX_MIDI_BYTES = 8 * 1024 * 1024
+MAX_CELLS = 50000
+MAX_CELL_WORK = 5000000
 SHARP = ['c', 'c+', 'd', 'd+', 'e', 'f', 'f+', 'g', 'g+', 'a', 'a+', 'b']
 VOLUMES = (100, 78, 65)
 
@@ -44,7 +48,7 @@ class MidiError(ValueError):
 # ---------------------------------------------------------------- SMF reader
 def _vlq(data, i):
     value = 0
-    while True:
+    for _ in range(4):
         if i >= len(data):
             raise MidiError('truncated variable-length quantity')
         b = data[i]
@@ -52,6 +56,7 @@ def _vlq(data, i):
         value = (value << 7) | (b & 0x7F)
         if not b & 0x80:
             return value, i
+    raise MidiError('variable-length quantity exceeds four bytes')
 
 
 def read_smf(data):
@@ -62,6 +67,12 @@ def read_smf(data):
     fmt = int.from_bytes(data[8:10], 'big')
     ntrk = int.from_bytes(data[10:12], 'big')
     div = int.from_bytes(data[12:14], 'big')
+    if hlen < 6 or 8 + hlen > len(data):
+        raise MidiError('invalid or truncated MIDI header')
+    if not div:
+        raise MidiError('zero PPQ time division')
+    if not 1 <= ntrk <= 256 or (fmt == 0 and ntrk != 1):
+        raise MidiError('invalid track count (maximum 256)')
     if div & 0x8000:
         raise MidiError('SMPTE time division is not supported')
     if fmt not in (0, 1):
@@ -69,9 +80,11 @@ def read_smf(data):
     pos = 8 + hlen
     tracks, tempos, sigs = [], [], []
     for index in range(ntrk):
-        if data[pos:pos + 4] != b'MTrk':
+        if pos + 8 > len(data) or data[pos:pos + 4] != b'MTrk':
             raise MidiError(f'track {index} header missing')
         size = int.from_bytes(data[pos + 4:pos + 8], 'big')
+        if pos + 8 + size > len(data):
+            raise MidiError(f'track {index} payload truncated')
         body = data[pos + 8:pos + 8 + size]
         pos += 8 + size
         i, now, status = 0, 0, 0
@@ -81,23 +94,35 @@ def read_smf(data):
             delta, i = _vlq(body, i)
             now += delta
             if i >= len(body):
-                break
+                raise MidiError(f'track {index} event missing after delta')
             b = body[i]
             if b == 0xFF:
+                if i + 1 >= len(body):
+                    raise MidiError('truncated meta event')
                 mtype = body[i + 1]
                 length, i = _vlq(body, i + 2)
+                if i + length > len(body):
+                    raise MidiError('truncated meta payload')
                 payload = body[i:i + length]
                 i += length
                 if mtype == 0x03 and not name:
                     name = payload.decode('latin-1', 'replace')
                 elif mtype == 0x51 and length == 3:
-                    tempos.append((now, int.from_bytes(payload, 'big')))
+                    tempo = int.from_bytes(payload, 'big')
+                    if not tempo:
+                        raise MidiError('zero microseconds-per-quarter tempo')
+                    tempos.append((now, tempo))
                 elif mtype == 0x58 and length >= 2:
+                    if not payload[0] or payload[1] > 6:
+                        raise MidiError('invalid time signature')
                     sigs.append((now, payload[0], 1 << payload[1]))
                 continue
             if b in (0xF0, 0xF7):
                 length, i = _vlq(body, i + 1)
+                if i + length > len(body):
+                    raise MidiError('truncated system-exclusive payload')
                 i += length
+                status = 0
                 continue
             if b & 0x80:
                 status = b
@@ -105,6 +130,11 @@ def read_smf(data):
             elif not status:
                 raise MidiError('data byte without status')
             kind, ch = status & 0xF0, status & 0x0F
+            if kind not in (0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0):
+                raise MidiError(f'unsupported MIDI status 0x{status:02x}')
+            count = 1 if kind in (0xC0, 0xD0) else 2
+            if i + count > len(body) or any(v & 0x80 for v in body[i:i + count]):
+                raise MidiError('truncated or invalid channel-event data')
             if kind in (0xC0, 0xD0):
                 arg = body[i]
                 i += 1
@@ -131,7 +161,10 @@ def bar_ticks(ppq, sigs):
     if len({(n, d) for _, n, d in sigs}) > 1:
         raise MidiError('meter changes inside the file; choose a constant-meter excerpt by tick or split it')
     n, d = (sigs[0][1], sigs[0][2]) if sigs else (4, 4)
-    return ppq * 4 * n // d
+    ticks = ppq * 4 * n
+    if ticks % d or not ticks:
+        raise MidiError('time signature cannot be expressed in this PPQ')
+    return ticks // d
 
 
 def polyphony(notes):
@@ -161,7 +194,7 @@ def list_tracks(ppq, tracks, tempos, sigs):
 
 
 def parse_voice(spec, tracks):
-    m = re.fullmatch(r'([0-9.+]+):(top|bottom)', spec)
+    m = re.fullmatch(r'(\d+(?:\.\d+)?(?:\+\d+(?:\.\d+)?)*)\:(top|bottom)', spec)
     if not m:
         raise MidiError(f'bad voice spec {spec!r}; use TRACK[.CHANNEL][+...]:top|bottom')
     notes = []
@@ -169,6 +202,8 @@ def parse_voice(spec, tracks):
         if '.' in part:
             t, c = part.split('.')
             t, c = int(t), int(c) - 1
+            if not 0 <= c <= 15:
+                raise MidiError('voice channel must be in 1..16')
         else:
             t, c = int(part), None
         if not 0 <= t < len(tracks):
@@ -183,9 +218,12 @@ def parse_voice(spec, tracks):
 def reduce_voice(notes, mode, t0, t1, unit):
     """Monophonic runs on a grid: list of (note_id, pitch, start_cell, cells)."""
     ncell = round((t1 - t0) / unit)
+    if not 1 <= ncell <= MAX_CELLS:
+        raise MidiError(f'excerpt exceeds {MAX_CELLS} grid cells; use a shorter excerpt')
     cells = [None] * ncell
     stats = dict(skipped_before=0, cut_after=0, snapped_short=0)
     pick = max if mode == 'top' else min
+    work = 0
     for nid, (s, e, p, _) in enumerate(notes):
         if e <= t0 or s >= t1:
             continue
@@ -199,6 +237,9 @@ def reduce_voice(notes, mode, t0, t1, unit):
         if ec <= sc:
             ec = sc + 1
             stats['snapped_short'] += 1
+        work += max(0, min(ec, ncell) - sc)
+        if work > MAX_CELL_WORK:
+            raise MidiError('polyphonic reduction exceeds bounded work; narrow the excerpt or source')
         for c in range(sc, min(ec, ncell)):
             cur = cells[c]
             if cur is None or pick(p, cur[1]) == p and p != cur[1]:
@@ -314,6 +355,14 @@ def expected_notes(runs, grid):
 
 # --------------------------------------------------------------------- main
 def build(args):
+    if args.output and Path(args.output).resolve() == Path(args.midi).resolve():
+        raise MidiError('output must differ from the input MIDI file')
+    if Path(args.midi).stat().st_size > MAX_MIDI_BYTES:
+        raise MidiError(f'MIDI input exceeds {MAX_MIDI_BYTES} bytes')
+    if args.from_bar < 1 or args.to_bar < 0:
+        raise MidiError('bar numbers must be positive (to-bar 0 means end)')
+    if any(not 0 <= v <= 127 for v in args.volume):
+        raise MidiError('volume must be in 0..127')
     data = Path(args.midi).read_bytes()
     ppq, tracks, tempos, sigs = read_smf(data)
     if args.list:
@@ -324,7 +373,9 @@ def build(args):
     if args.grid not in (1, 2, 4, 8, 16):
         raise MidiError('--grid must be 1, 2, 4, 8 or 16 subdivisions per quarter note')
     bt = bar_ticks(ppq, sigs)
-    end_all = max(n[1] for tr in tracks for n in tr['notes'])
+    end_all = max((n[1] for tr in tracks for n in tr['notes']), default=0)
+    if not end_all:
+        raise MidiError('MIDI contains no positive-duration notes')
     t0 = (args.from_bar - 1) * bt
     t1 = min((args.to_bar - 1) * bt, -(-end_all // bt) * bt) if args.to_bar else -(-end_all // bt) * bt
     if t1 <= t0:
@@ -333,12 +384,14 @@ def build(args):
     at_start = [u for t, u in tempos if t <= t0]
     start_tempo = at_start[-1] if at_start else (tempos[0][1] if tempos else 500000)
     inside = {u for t, u in tempos if t0 < t < t1}
-    bpm = args.tempo or round(60e6 / start_tempo)
+    bpm = args.tempo if args.tempo is not None else round(60e6 / start_tempo)
     if inside and not args.tempo and max(abs(60e6 / u - bpm) for u in inside) > 0.6:
         raise MidiError(f'tempo changes inside the excerpt ({sorted(round(60e6 / u, 1) for u in inside)} BPM); '
                         'pick a constant-tempo span or pass --tempo to flatten it explicitly')
     if not 32 <= bpm <= 255:
         raise MidiError(f'tempo {bpm} BPM is outside 32..255; pass --tempo with an explicit half- or double-time value')
+    if F(t1 - t0, ppq) * 60 / bpm > 600:
+        raise MidiError('excerpt exceeds the 600-second runtime limit')
     unit = ppq / args.grid
     voices, shifts, report = [], {}, []
     for vi, spec in enumerate(args.voice):
@@ -380,7 +433,6 @@ def build(args):
         got = [(n['start'] * bpm / 60, n['end'] * bpm / 60, n['note']) for n in parsed[vi] if n['note']]
         if got != want:
             raise MidiError(f'internal check failed: voice {vi + 1} text differs from the quantized notes')
-    Path(args.output).write_text(text + '\n', encoding='ascii') if args.output else None
     bars = (t1 - t0) // bt
     print(f'excerpt bars {args.from_bar}..{args.from_bar + bars} ({bars} bars), tempo {bpm} BPM, grid 1/{args.grid * 4} note, '
           f'{len(text)} bytes ({MAX_BYTES} max), {float(duration):.1f} s')
@@ -409,6 +461,8 @@ def build(args):
         print(f'check: import_score accepts it: {r["lead_events"]} lead events ({MAX_LEAD_EVENTS} max), '
               f'{r["chart_taps"]} taps, {r["automatic_lead_events"]} automatic, {r["states"]} PSG states, '
               f'{r["seconds"]} s')
+    if args.output:
+        Path(args.output).write_text(text + '\n', encoding='ascii')
     return 0
 
 
@@ -430,7 +484,7 @@ def main(argv=None):
     args = p.parse_args(argv)
     try:
         return build(args)
-    except (MidiError, ScoreError) as e:
+    except (MidiError, ScoreError, OSError) as e:
         print(f'error: {e}', file=sys.stderr)
         return 1
 

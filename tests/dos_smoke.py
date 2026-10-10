@@ -75,7 +75,9 @@ def main():
             if c in (3,4,7,9) and not (4<=x<100 and 47<=y<147):stray+=1
     need(stray==0,f'cycled colors confined to the left panel ({stray} stray pixels)')
     fx=dict(t.split('=',1) for t in (ev/'HIT.LOG').read_text().split() if '=' in t)
-    need(fx.get('fx_buffer')=='1' and int(fx.get('fx_switches','0'))>=4,'left panel buffer allocated and scenes rotate')
+    # Completed-image dwell is now at least 16 beats and 146 BIOS ticks.
+    # The 32-second original fixture must still advance through two scenes.
+    need(fx.get('fx_buffer')=='1' and int(fx.get('fx_switches','0'))>=2,'packed left panel ready and completed scenes rotate')
     need('hits=0 misses=64' in (ev/'MISS.LOG').read_text(),'all-miss run')
     for log,res in (('SKIP','result=1'),('SESC','result=0'),('SCALM','calm=1'),('FALLBACK','result=0')):
         text=(ev/f'{log}.LOG').read_text()

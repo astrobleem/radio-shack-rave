@@ -1,6 +1,6 @@
 {
-  "converter": "RBG4 onset retention with optional metrical policy and seven-tick same-lane input windows",
-  "engine": "v6 showcase + lazy SONGS discovery, shuffled demo auto-next and judgment word rotation",
+  "converter": "RBG2/3/4/5 compatibility and bounded offline MIDI-to-MML tool; original music only",
+  "engine": "v6 title selection, packed left-panel effects and completed-scene dwell, far-memory songs, RBG5 drums and high scores",
   "pins": {
     "music/LICENSE.TXT": "9374942185c4a05016fefc7bfb33d98c743c485d7582bb846d1d807aed26bb63",
     "music/ORIGINAL.MML": "51fb8c9395739c4d866eb06d3db483f4d57859693462a3208b504bf297654f41",
@@ -32,7 +32,7 @@
     "tests/NATIVE.BAT": "2cb5a56603e6181330bca2fc8adaa9d3529c4e1c878b54a0bd53803b298ba90c",
     "tests/dos_hiscore.py": "8ba7de031eeec8c8fb8caf569d2978e84e0a9e5a0be3d0154de57731dbd8dcb2",
     "tests/dos_playlist.py": "28466f8bd906df4284e62b344e34298828c81964adab0eda17e237e835334875",
-    "tests/dos_smoke.py": "98cf6b30753343c86fc6855ca9f994f664004169aa9634a8901fb9347ec92ef7",
+    "tests/dos_smoke.py": "3449c4488feeabb73638e01716eabeb436370067116475e2df6f6d9c7a3aeb87",
     "tests/dos_songs.py": "78ffb975c0dfa67c8952e45a49813cb11b9654386aef2ed7e2dbed63f341026e",
     "tests/edges.c": "e2675740b66d095fc2e1ce2b811626c9dd0ffb48f32f68be2fac57ee692f2191",
     "tests/loader_source.py": "d5cb782b2374cc82635545c432eb936e03a8dba10f1fb6376fa631c694a176dc",
@@ -59,16 +59,11 @@
     "tools/make_splash.py": "fc2d6567a239ebe27e96373de0a0f293640a90c2177cb0b0a73358078d6da044",
     "tools/mml.py": "3e242c0a63e40f2d4f8b08f856edd3ce7b554b24d8b1ff92aff702e133873a17",
     "tools/tour_video.py": "86c7f65a9af12e2f9eaab42740a65af2bd871bb83eaf4796714bde1b6e158a44",
+    "tools/midi_to_mml.py": "e65d65ab0a4d79f037c0607268d76786658184db1485893c242c0d321cfc453d",
+    "tests/test_midi_to_mml.py": "29278121d1f4dfb8b1e6323daf2ef539f9e4d0550d795a66c57bb8ccb228c49e",
     "tests/leftfx_host.py": "52eed8bc2982be8166a42f91a45952eb3af065f023952a31f2a55271e6d1000b"
   },
   "public_branding": "original code-drawn splash/title; LOGO.BIN user-supplied, never bundled",
   "schema": "rave-public-source-v1",
-  "source_toolchain": "Microsoft C6 /G0 /AS reference or OpenWatcom2 official2026-10-01-Build via tools/build_ow.sh;4096paragraph extra cap",
-  "private_sidefx": {
-    "baseline_commit": "811fcf5bf7e76c604aa80d929538d6ab527a457a",
-    "bundled_runtime": "Unchanged accepted baseline; separate candidate-build/RSRAVE.EXE is unqualified",
-    "scope": "Packed left-panel backgrounds and visible-completion dwell only",
-    "native": "PENDING explicit bounded shared emulator allocation",
-    "physical": "PENDING; no speed claim"
-  }
+  "source_toolchain": "Microsoft C6 /G0 /AS reference or OpenWatcom2 official2026-10-01-Build via tools/build_ow.sh;4096paragraph extra cap"
 }

@@ -46,8 +46,7 @@ text still appear. There is no strobe in either mode.
 
 ### The left panel
 
-A framed window beside the lanes holds each completed scene for at least
-four bars and eight seconds, with a fresh dwell after calm mode, and keeps
+A framed window beside the lanes changes scene every two bars and keeps
 rotating across songs: **DJ Alfredo** on the decks, plasma, a spiral starburst
 with a rotating wireframe cube, a starfield tunnel, a rotozoomer, copper bars,
 a waving checkered flag and a synthwave grid floor.
@@ -118,18 +117,9 @@ the title/difficulty/beat metadata. Synthetic CI checks cover all three formats.
 Local-only compatibility checks cover the preserved library; those song files
 and their audio/notation are not included in public artifacts.
 
-The Watcom cross-build applies a checked 4096-paragraph extra DOS allocation
-cap, matching the intent of the MSC6 linker cap. The 9 KB far word cache fits
-within that budget. Left-panel backgrounds are 33,600 bytes of immutable far
-data, already packed for mode 9; sprite restoration reads those same images.
-There is no allocated scene buffer or runtime phase/overlay decoding.
-This is an allocation bound, not a physical CPU performance claim.
-
-This private side-effect source revision is based on
-`811fcf5bf7e76c604aa80d929538d6ab527a457a`. The bundled runtime remains that
-accepted baseline; the separate candidate build requires native and physical
-qualification before delivery. See `PRIVATE-SIDEFX.md` for host evidence,
-work counts, source scope and the pending emulator allocation.
+The Watcom cross-build now applies a checked 4096-paragraph extra DOS allocation
+cap, matching the intent of the MSC6 linker cap. The 9 KB far cache and 4.8 KB
+scene buffer fit within that budget. This is an allocation bound, not a physical CPU performance claim.
 
 Bounded ArcheAge-style MML profile: optional `MML@...;`, case-insensitive notes,
 rests, sharps/flats, octaves, lengths, dots, tempo, volume, same-pitch ties and
@@ -291,6 +281,27 @@ These are local native captures of original synthetic LONG charts, not imported
 music. Local DOSBox-X 2025.12.01 raised a host shutdown exception after the guest
 suite wrote its passing cleanup records; the cause remains unresolved. Host and
 guest results are recorded separately. No physical Tandy timing/listening claim.
+
+## Offline MIDI conversion
+
+`python tools/midi_to_mml.py YOUR-ORIGINAL.mid --list`
+
+Select up to three monophonic voices with `--voice TRACK.CHANNEL:top` or
+`:bottom`, then use `-o YOUR-ORIGINAL.mml --check`. The first voice is the lead.
+The tool reports quantizing, polyphony reduction, excerpt boundaries and any
+whole-octave shift needed by `import_score.py`; `--fold` explicitly permits
+individual octave folding. It uses the Python standard library, reads local
+files, and contains no music. Use music you are entitled to convert and share.
+
+MML is limited to 131,072 bytes; the runtime accepts at most 2,048 lead events,
+4,096 backing states, 4,096 drum hits and 600 seconds. `--check` applies the
+production converter before writing output. Invalid/truncated MIDI fails with
+an error, and bounded input/grid/reduction limits prevent unbounded work.
+
+The left panel uses host-packed images and holds each completed scene for at
+least 16 beats and 146 BIOS ticks. This removes runtime phase/overlay decoding
+and the duplicate scene heap image. Palette, lane, clock and input behavior are
+preserved; emulator measurements are not physical Tandy speed claims.
 
 ## Optional metrical converter policy
 

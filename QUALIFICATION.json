@@ -1,42 +1,46 @@
 {
-  "status": "EXPERIMENTAL; EMULATOR_TESTED; EXACT_HEAD_CI_REQUIRED_FOR_FIXED_TOOLCHAIN_RUNTIME",
-  "engine": "v6 showcase + playlist + left-panel effects + far-memory songs + drum channel + high scores",
+  "status": "INTEGRATION_CANDIDATE; HOST_PASS; EXACT_RUNTIME_CI_AND_NATIVE_PENDING",
+  "engine": "v6 title selection, packed effects/completed dwell, far-memory RBG5 songs/drums/high scores, offline MIDI tool",
   "runtime_sha256": "2ad3fec1ddb89df81587c4ea4065855af65c9a3a7fcebd7b299bc6260fde13c2",
   "toolchains": {
     "bundled_runtime": "Official OpenWatcom2 2026-10-01-Build, fresh Linux CI artifact; strict rebuild comparison enabled",
     "CI": "Official immutable date tag2026-10-01-Build; SHA256 independently downloaded and verified before pinning"
   },
   "local_tests": {
-    "host_tests": 20,
-    "pack_regressions": 9,
-    "native": "DOS enumeration RBG2/3/4, malformed selection skip, shuffle cycles including64candidates, disappeared-file skip, empty/all-invalid fallback, explicit playback, AUTO/MISS exact audio, demo advance, IRQ1 Escape and cleanup. Word geometry and hit/miss images inspected.",
-    "public_host_unit_tests": 30,
-    "public_source_rebuild": "Public source with existing Windows compiler exactly reproduces local native-tested Windows runtime0649e8...; bundled fixed-toolchain runtime is qualified by exact-head CI."
+    "host_unit_tests": 44,
+    "strict_C89_lint": "PASS",
+    "image_palette_pairs_equal": 56,
+    "original_core_hit_reference_equal": true,
+    "local_rebuild19_sha256": "b87302611488b8b61bbac61523b0a7df819f62f8d8e5ab453ee844c21e9b03b5",
+    "local_rebuild19_equals_previously_tested_NEW": true,
+    "current_bundled_runtime": "Baseline pending fresh fixed-toolchain artifact replacement; strict CI comparison retained."
   },
   "bounds": {
     "candidate_filenames": 64,
     "directory_matches": 1024,
-    "chart_notes": 512,
-    "states": 1024,
+    "chart_notes": 2048,
+    "states": 4096,
     "word_cache_used": 8658,
     "word_cache_bytes": 9216,
-    "maximum_image_plus_allocation_bytes": 160512,
     "PSP_environment_excluded": true,
-    "fx_scene_buffer_bytes": 4800,
+    "fx_scene_buffer_bytes": 0,
     "lead_notes": 2048,
     "backing_states": 4096,
     "drum_hits": 4096,
     "song_tables": "far memory, allocated per song (grow-only): states*12 + notes*11 + drums*4 bytes; a 2048-note, 4096-state song needs about 72 KB more",
-    "hiscore_table_bytes": 3456
+    "hiscore_table_bytes": 3456,
+    "packed_fx_far_bytes": 33600,
+    "source_mml_bytes": 131072,
+    "midi_input_bytes": 8388608,
+    "midi_grid_cells": 50000,
+    "midi_reduction_cell_work": 5000000
   },
   "host_shutdown": "Local DOSBox-X2025.12.01 exited with0xC0000005 after guest logs completed; cause unresolved. Earlier0xC0000409 retained locally. Guest cleanup records pass independently.",
   "unimplemented": [
     "backing untied-note attack/envelope fix",
-    "song noise/drum format extension",
     "RMS VU"
   ],
-  "physical": "No physical Tandy or4.77MHz performance/listening claim. Only original demo and synthetic fixtures published; private song media excluded.",
-  "local_tested_windows_runtime_sha256": "0649e8cbc32f5f08004b5811e3183d2d8c5c5d324cc3c828a24ad5e84ea4e8a9",
+  "physical": "User reports NEW.EXE and Call Me work well. Exact played artifact identity unresolved; no physical timing or full hardware qualification claimed. Public repository ships original music and synthetic fixtures only.",
   "left_panel": {
     "scenes": [
       "DJ ALFREDO",
@@ -57,22 +61,10 @@
     "palette_writes": "Tandy video array 3DAh index 10h+n, 3DEh data, flushed in vertical blank",
     "emulator_display_check": "DOSBox-X machine=tandy screen recorded on Xvfb with ffmpeg x11grab: cycled colors visible in the real emulated output",
     "cpu_effects_budget": "24 fine units (~5 ms) per frame credit, capped at 72; rotozoom/flag skipped when the playfield alone averages over ~32 ms",
-    "slow_emulator_comparison": {
-      "setting": "DOSBox-X fixed 450 cycles, /AUTO original song (not calibrated to physical hardware)",
-      "previous_v6": {
-        "hits": 64,
-        "frames": 608,
-        "avg_frame_ms": 49.1,
-        "worst_frame_ms": 113
-      },
-      "this_build": {
-        "hits": 64,
-        "frames": 649,
-        "avg_frame_ms": 44.0,
-        "worst_frame_ms": 113
-      }
-    },
-    "calm": "no cycling, no motion, no scene changes; still figure drawn once"
+    "calm": "no cycling, no motion, no scene changes; still figure drawn once",
+    "storage": "Host-packed final Tandy pixels; no scene heap image",
+    "minimum_completed_scene_beats": 16,
+    "minimum_completed_scene_BIOS_ticks": 146
   },
   "far_memory_songs": {
     "emulator": "tests/dos_songs.py: 992 lead notes and 1270 backing states (old caps 512/1024) played to the last tick, every required note hit",
@@ -99,13 +91,10 @@
     "emulator": "tests/dos_hiscore.py: ranks 1-5 with ties below, full board, malformed file, unwritable file, scripted play writes nothing",
     "not_tested": "a physical write-protected floppy (DOSBox-X cannot raise the critical error the same way)"
   },
-  "private_sidefx": {
-    "baseline_commit": "811fcf5bf7e76c604aa80d929538d6ab527a457a",
-    "bundled_runtime": "Unchanged accepted baseline; separate candidate-build/RSRAVE.EXE is unqualified",
-    "scope": "Packed left-panel backgrounds and visible-completion dwell only",
-    "native": "PENDING explicit bounded shared emulator allocation",
-    "physical": "PENDING; no speed claim",
-    "host": "56 image/palette pairs equal; completion dwell and unchanged core pass",
-    "historical_fields": "All other fields describe the unchanged bundled baseline runtime"
+  "integration_sources": {
+    "remote_runtime_base": "811fcf5bf7e76c604aa80d929538d6ab527a457a",
+    "midi_tool": "1cd2a3317874463647b4015f12c19e89baac5d90",
+    "side_effects": "a3171385302346e54fe6e5827e8064ba58f9b054",
+    "side_effect_evidence": "e257ccfcb4a6a7a63f179211a6836c0748f896c1"
   }
 }
