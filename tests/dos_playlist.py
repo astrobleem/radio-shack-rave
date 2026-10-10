@@ -30,11 +30,11 @@ def main():
     # Escape in the demo returns to the title; a second Escape there exits.
     # DEMO waits past the first demo, which now returns to the splash.
     for folder,wait in [('EMPTY',3),('INVALID',3),('DEMO',12)]:
-        batch += ['cd '+folder,f'AUTOTYPE -w {wait} -p 2 esc esc','..\\RSRAVE /DEMO',
+        batch += ['cd '+folder,f'ADDKEY p{wait * 1000} l50 escape p2000 l50 escape','..\\RSRAVE /DEMO',
                   f'copy RUNLOG.TXT ..\\EV\\{folder}.LOG > nul','cd ..']
-    # AUTOTYPE Start joins the previous worker. A comma-only zero-delay sequence
-    # touches no key events and lets the Escape break finish before shutdown.
-    batch += ['AUTOTYPE -w 0 -p 0 ,','echo DONE > EV\\DONE.TXT','goto end',
+    # ADDKEY schedules make/break events in the guest, without an AUTOTYPE
+    # host worker that can race the next process or shutdown.
+    batch += ['echo DONE > EV\\DONE.TXT','goto end',
               ':failed','cd \\','echo FAILED > EV\\DONE.TXT',':end']
     (work/'CHECK.BAT').write_text('\n'.join(batch)+'\n')
     if a.prepare_only:print('Prepared synthetic fixtures and native catalog; no emulator launched.');return
@@ -42,9 +42,23 @@ def main():
     conf.write_text('[sdl]\noutput=surface\n[dosbox]\nmachine=tandy\nmemsize=1\nquit warning=false\n'
                     '[cpu]\ncore=normal\ncputype=8086_prefetch\ncycles=fixed 12000\n'
                     '[mixer]\nnosound=true\n[autoexec]\nmount c '+str(work)+'\nc:\ncall CHECK.BAT\nexit\n')
-    run=subprocess.run(['dosbox-x','-conf',str(conf),'-nopromptfolder','-fastlaunch'],
-                       env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),
-                       capture_output=True,timeout=120)
+    try:
+        run=subprocess.run(['dosbox-x','-conf',str(conf),'-nopromptfolder','-fastlaunch'],
+                           env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),
+                           capture_output=True,timeout=120)
+    except subprocess.TimeoutExpired as exc:
+        ev=work/'EV'
+        (ev/'HOST-STDOUT.txt').write_bytes(exc.stdout or b'')
+        (ev/'HOST-STDERR.txt').write_bytes(exc.stderr or b'')
+        (ev/'TIMEOUT.txt').write_text('DOSBox-X exceeded the unchanged 120-second deadline.\n')
+        if a.keep:
+            shutil.copytree(ev,a.keep,dirs_exist_ok=True)
+            for name in ['CHECK.BAT','PLAYLIST.CNF']:
+                shutil.copy2(work/name,a.keep/name)
+            for folder in ['EMPTY','INVALID','DEMO']:
+                log=work/folder/'RUNLOG.TXT'
+                if log.exists():shutil.copy2(log,a.keep/(folder+'-PARTIAL.LOG'))
+        raise
     ev=work/'EV';(ev/'HOST-STDOUT.txt').write_bytes(run.stdout);(ev/'HOST-STDERR.txt').write_bytes(run.stderr)
     if a.keep:shutil.copytree(ev,a.keep,dirs_exist_ok=True)
     assert run.returncode==0,'DOSBox-X host failure: '+str(run.returncode)

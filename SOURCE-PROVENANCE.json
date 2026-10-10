@@ -31,7 +31,7 @@
     "tests/BAD.RBG": "92a1e1cdf2cbebe3014d51188300159745a75a7104c37d2b7317f9930124f230",
     "tests/NATIVE.BAT": "2cb5a56603e6181330bca2fc8adaa9d3529c4e1c878b54a0bd53803b298ba90c",
     "tests/dos_hiscore.py": "8ba7de031eeec8c8fb8caf569d2978e84e0a9e5a0be3d0154de57731dbd8dcb2",
-    "tests/dos_playlist.py": "28466f8bd906df4284e62b344e34298828c81964adab0eda17e237e835334875",
+    "tests/dos_playlist.py": "18d3bdef6ebd477f325c7aa5c3e941af5c0f2c39a1f9a7401ccfd8f6d329c172",
     "tests/dos_smoke.py": "3449c4488feeabb73638e01716eabeb436370067116475e2df6f6d9c7a3aeb87",
     "tests/dos_songs.py": "78ffb975c0dfa67c8952e45a49813cb11b9654386aef2ed7e2dbed63f341026e",
     "tests/edges.c": "e2675740b66d095fc2e1ce2b811626c9dd0ffb48f32f68be2fac57ee692f2191",
