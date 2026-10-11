@@ -1,5 +1,5 @@
 {
-  "status": "EXPERIMENTAL; EXACT_RUNTIME_EMULATOR_CI_PASS; FINAL_SOURCE_HEAD_CI_REQUIRED",
+  "status": "EXPERIMENTAL; ENGINE_RUNTIME_EXACT_CI_PASS; WORKFLOW_FINAL_HEAD_CI_REQUIRED",
   "engine": "v6 title selection, packed effects/completed dwell, far-memory RBG5 songs/drums/high scores, offline MIDI tool",
   "runtime_sha256": "496978d34df121d5039fc7d05362d35daf1ffbf4d748aeb5c73ddd75a89535fd",
   "toolchains": {
@@ -109,5 +109,23 @@
     "qualified_head": "c75af77e207f78f024898238cba7955103f8c09b",
     "qualified_merge_tree": "d69d9aa6b0efa9c5aa79fc33091d8568385c21e9"
   },
-  "final_source_CI": "Check final commit GitHub status; runtime identity is unchanged by offline tool/docs refinements."
+  "final_source_CI": "Check final commit GitHub status; runtime identity is unchanged by offline tool/docs refinements.",
+  "workflow": {
+    "tests": "72 host tests PASS including real Tk UI, drum negative/roundtrip tests; strict C89 and unchanged original core hit/reference PASS",
+    "private_corpus": "11 selected data files; 9 bounded workflow PASS, 2 explicit meter-change rejections",
+    "private_jump": "22.325568s;33 lead events;30 taps;114 source drum attacks;69 noise hits;45 collisions;native guest/listening review pending",
+    "ui": "Existing Tk8.6.13 actual form produced byte-identical chart; no installation",
+    "engine_changed": false,
+    "accepted_song_bytes_changed": false,
+    "physical": "No new hardware/audio claims"
+  },
+  "engine_ci": {
+    "head": "3e568c3d40b47051e5038c87ed9b66ba11770fff",
+    "runs": [
+      38096871431,
+      38096869487
+    ],
+    "result": "Both host/effects and native DOS PASS",
+    "merge_commit": "833c08ddbcda0e98c8f4caaa66ef4c52e45b57a2"
+  }
 }

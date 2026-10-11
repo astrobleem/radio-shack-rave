@@ -286,18 +286,24 @@ guest results are recorded separately. No physical Tandy timing/listening claim.
 
 ## Offline MIDI conversion
 
+The Tk [workbench and percussion workflow](docs/MIDI-WORKFLOW.md) downloads or
+opens a MIDI, selects tone parts/excerpts, previews PSG plus noise, and saves a
+complete arrangement sidecar and RBG4/5. Channel-10 drums are preserved with
+measured onsets/velocities and an explicit collision ledger. Original tempo
+maps are preserved in the sidecar; MML alone cannot carry this workflow's drums.
+
 `python tools/midi_to_mml.py YOUR-ORIGINAL.mid --list`
 
 Select up to three monophonic voices with `--voice TRACK.CHANNEL:top` or
 `:bottom`, then use `-o YOUR-ORIGINAL.mml --check`. The first voice is the lead.
 The tool reports quantizing, polyphony reduction, excerpt boundaries and any
-whole-octave shift needed by `import_score.py`; `--fold` explicitly permits
+whole-octave shift stored in the arrangement sidecar; `--fold` explicitly permits
 individual octave folding. It uses the Python standard library, reads local
 files, and contains no music. Use music you are entitled to convert and share.
 
 MML is limited to 131,072 bytes; the runtime accepts at most 2,048 lead events,
 4,096 backing states, 4,096 drum hits and 600 seconds. `--check` applies the
-production converter before writing output. Invalid/truncated MIDI fails with
+native sidecar converter before writing output. Invalid/truncated MIDI fails with
 an error, and bounded input/grid/reduction limits prevent unbounded work.
 
 The left panel uses host-packed images and holds each completed scene for at

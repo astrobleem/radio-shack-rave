@@ -1,5 +1,5 @@
 {
-  "converter": "RBG2/3/4/5 compatibility and bounded offline MIDI-to-MML tool; original music only",
+  "converter": "Bounded MIDI workbench with original tempo maps, measured channel-10 event sidecars and audited RBG5 noise; original music only",
   "engine": "v6 title selection, packed left-panel effects and completed-scene dwell, far-memory songs, RBG5 drums and high scores",
   "pins": {
     "music/LICENSE.TXT": "9374942185c4a05016fefc7bfb33d98c743c485d7582bb846d1d807aed26bb63",
@@ -59,9 +59,16 @@
     "tools/make_splash.py": "fc2d6567a239ebe27e96373de0a0f293640a90c2177cb0b0a73358078d6da044",
     "tools/mml.py": "3e242c0a63e40f2d4f8b08f856edd3ce7b554b24d8b1ff92aff702e133873a17",
     "tools/tour_video.py": "86c7f65a9af12e2f9eaab42740a65af2bd871bb83eaf4796714bde1b6e158a44",
-    "tools/midi_to_mml.py": "ac30c157e33aeee0883c9f3f14cf1848933cdc61d9c0b44cec4f52214f96f85a",
-    "tests/test_midi_to_mml.py": "91194b8aec334e3425c2250296a56cb255caefab8e7f5f85b33686c94025b194",
-    "tests/leftfx_host.py": "52eed8bc2982be8166a42f91a45952eb3af065f023952a31f2a55271e6d1000b"
+    "tools/midi_to_mml.py": "d03e95f8bb838271ae259a24698167b4f784ded9b81c237d7f1fdad846aa310c",
+    "tests/test_midi_to_mml.py": "1a16bdfd574575f84e8729d872969c594784a279e42e6e46fd39bfbcfa5f4dcb",
+    "tests/leftfx_host.py": "52eed8bc2982be8166a42f91a45952eb3af065f023952a31f2a55271e6d1000b",
+    "tools/fetch_midi_list.py": "38130cfabcc9af46368da6bba3b38e87c27ca641564dc0dcc38e1700911cc44e",
+    "tools/rave_workbench.py": "3a89b0b350730ad2751c85de493a81067656f3b2c64f57ae4771778bf139aa6b",
+    "tools/midi_arrangement.py": "11d428bb1860c0288b8bfd7b876671a5099fedfa2e1e4ef121a45e889e2860b1",
+    "tools/midi_preview.py": "8226cdfdd8232acce34651c6c3fcff28584121bd25ae98fe55c17a756176bf7a",
+    "tests/test_fetch_midi_list.py": "2c2b567e6708e2c08e0295307d808bc193cf3b3fa219633aefe50d4b0c922e93",
+    "tests/test_rave_workbench.py": "37daf2a205e02c17edfbd0a35c0af209e575384cca2aebf34e0ce0ff745f851a",
+    "tests/test_midi_drums.py": "e251b24e809a409140a17561623b71a1dcd33a3ab4065804c9ecc266e4fcd14e"
   },
   "public_branding": "original code-drawn splash/title; LOGO.BIN user-supplied, never bundled",
   "schema": "rave-public-source-v1",
