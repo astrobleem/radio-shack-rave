@@ -61,6 +61,8 @@ def validate(a):
                 integer(pitch+voice['shift'],45,96,'transposed tone pitch')
     grid=integer(a.get('grid'),1,16,'grid')
     if grid not in (1,2,4,8,16):raise ScoreError('unsupported grid')
+    if F((end-start)*grid,ppq)>50000:
+        raise ScoreError('excerpt exceeds 50000 grid cells; shorten it')
     if not isinstance(drums,list) or len(drums)>100000:raise ScoreError('drums must be a bounded event list')
     for i,d in enumerate(drums):
         if not isinstance(d,dict):raise ScoreError(f'malformed drum {i}')
@@ -73,6 +75,13 @@ def validate(a):
     if not isinstance(a.get('title'),str) or clean_title(a['title'])!=a['title']:raise ScoreError('invalid title')
     override=a.get('tempo_override')
     if override is not None:integer(override,32,255,'tempo override')
+    else:
+        active=500000
+        for at,us in tempos:
+            if at<=start:active=us
+        values=[active]+[us for at,us in tempos if start<at<end]
+        if any(not 32<=round(F(60000000,us))<=255 for us in values):
+            raise ScoreError('playback tempo outside 32..255 nominal BPM; use an explicit tempo override')
     return ppq,start,end
 
 def convert_arrangement(a):

@@ -64,11 +64,11 @@
     "tests/leftfx_host.py": "52eed8bc2982be8166a42f91a45952eb3af065f023952a31f2a55271e6d1000b",
     "tools/fetch_midi_list.py": "38130cfabcc9af46368da6bba3b38e87c27ca641564dc0dcc38e1700911cc44e",
     "tools/rave_workbench.py": "3a89b0b350730ad2751c85de493a81067656f3b2c64f57ae4771778bf139aa6b",
-    "tools/midi_arrangement.py": "11d428bb1860c0288b8bfd7b876671a5099fedfa2e1e4ef121a45e889e2860b1",
+    "tools/midi_arrangement.py": "c4f795dc0db1eec786f7a554b528f1ca51c8dc58c4b7ef8e573dde6e5cd6687a",
     "tools/midi_preview.py": "8226cdfdd8232acce34651c6c3fcff28584121bd25ae98fe55c17a756176bf7a",
     "tests/test_fetch_midi_list.py": "2c2b567e6708e2c08e0295307d808bc193cf3b3fa219633aefe50d4b0c922e93",
     "tests/test_rave_workbench.py": "37daf2a205e02c17edfbd0a35c0af209e575384cca2aebf34e0ce0ff745f851a",
-    "tests/test_midi_drums.py": "e251b24e809a409140a17561623b71a1dcd33a3ab4065804c9ecc266e4fcd14e"
+    "tests/test_midi_drums.py": "163f82428d00db7ad9ab8c9a3aa397ad02908302e508041e43f23e2b9ee591fb"
   },
   "public_branding": "original code-drawn splash/title; LOGO.BIN user-supplied, never bundled",
   "schema": "rave-public-source-v1",
