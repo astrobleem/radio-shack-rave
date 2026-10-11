@@ -68,7 +68,7 @@ class MidiToMml(unittest.TestCase):
  def test_explicit_shift_reported_and_never_clamped(self):
   data=smf([(0,[(0,96,33),(96,192,40)])])
   code,out,err,text=self.run_tool(data,'--voice','1:top','--title','LOW')
-  self.assertEqual(code,0,err);self.assertIn('shift +12',out);self.assertIn('--voice-transpose 1:+12',out)
+  self.assertEqual(code,0,err);self.assertIn('shift +12',out);self.assertIn('.arrangement.json',out)
   wide=smf([(0,[(0,96,30),(96,192,100)])])
   code,_,err,_=self.run_tool(wide,'--voice','1:top')
   self.assertEqual(code,1);self.assertIn('wider than the PSG range',err)
