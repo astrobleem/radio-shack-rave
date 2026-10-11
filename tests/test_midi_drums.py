@@ -130,4 +130,26 @@ class MidiDrums(unittest.TestCase):
         s,_=fixture();s[3].append((384,3,4))
         with self.assertRaisesRegex(m.MidiError,'meter changes'):m.arrange(s,['1:top'])
 
+    def test_sidecar_extent_is_bounded_before_beat_generation(self):
+        _,r=fixture();side=r['arrangement'];side['end_tick']=2000000000
+        side['tempos']=[[0,500000],[384,1]]
+        with patch.object(a,'beat_segments') as beat:
+            with self.assertRaisesRegex(ScoreError,'50000 grid cells'):a.convert_arrangement(side)
+            beat.assert_not_called()
+
+    def test_effective_tempo_limits_and_explicit_override(self):
+        _,r=fixture();side=r['arrangement'];side['tempos']=[[0,500000],[384,1]]
+        with self.assertRaisesRegex(ScoreError,'tempo outside'):a.convert_arrangement(side)
+        side['tempo_override']=120
+        self.assertEqual(a.decode_score(a.convert_arrangement(side)[0])['version'],5)
+
+    def test_out_of_range_tempo_before_excerpt_can_be_superseded(self):
+        _,r=fixture();side=r['arrangement'];side['tempos']=[[0,1],[1,500000]]
+        side['start_tick']=1;side['end_tick']=1537
+        self.assertEqual(a.decode_score(a.convert_arrangement(side)[0])['version'],5)
+
+    def test_integer_microsecond_encoding_of_255_bpm_remains_valid(self):
+        _,r=fixture();side=r['arrangement'];side['tempos']=[[0,60000000//255]]
+        self.assertEqual(a.decode_score(a.convert_arrangement(side)[0])['version'],5)
+
 if __name__=='__main__':unittest.main()
