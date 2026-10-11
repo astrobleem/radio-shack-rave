@@ -33,6 +33,9 @@ def main():
         (a.keep/'BUILD.json').write_text(json.dumps(build,indent=2)+'\n')
     assert (work/'RSRAVE.EXE').read_bytes()==(root/'runtime/RSRAVE.EXE').read_bytes(), 'Fresh CI binary differs from pinned runtime; retained build is not yet native-qualified'
     subprocess.run([sys.executable,str(root/'tests/dos_playlist.py'),'--runtime',str(work/'RSRAVE.EXE')]+(['--keep',str(a.keep/'playlist')] if a.keep else []),check=True)
+    # Far-memory long songs, the drum channel and the high score table.
+    for extra in ('dos_songs','dos_hiscore'):
+        subprocess.run([sys.executable,str(root/'tests'/(extra+'.py')),'--runtime',str(work/'RSRAVE.EXE')]+(['--keep',str(a.keep/extra)] if a.keep else []),check=True)
     shutil.copy(root/'runtime/ORIGINAL.RBG',work);shutil.copy(root/'tests/BAD.RBG',work)
     (work/'EV').mkdir()
     auto=['mount c '+str(work),'c:','RSRAVE BAD.RBG /TEST','if errorlevel 2 echo REJECTED>EV\\BAD.TXT']
@@ -62,6 +65,19 @@ def main():
         text=(ev/f'{log}.LOG').read_text()
         need('restore_video=1 restore_keyboard=1' in text and 'cleanup_owned=0 keyboard_owned=0 video_owned=0 speaker_low=0' in text,f'{log} exit restores video, keyboard, sound, speaker')
     need('hits=64 misses=0' in (ev/'HIT.LOG').read_text(),'all-hit autoplay')
+    # Logical colors 3, 4, 7 and 9 are palette-cycled for the left panel, so
+    # nothing else on the playfield may use them.
+    raw=(ev/'HIT.RAW').read_bytes();stray=0
+    for y in range(200):
+        row=raw[y*160:y*160+160]  # dumps are plain sequential rows
+        for x in range(320):
+            c=(row[x>>1]>>4) if not x&1 else (row[x>>1]&15)
+            if c in (3,4,7,9) and not (4<=x<100 and 47<=y<147):stray+=1
+    need(stray==0,f'cycled colors confined to the left panel ({stray} stray pixels)')
+    fx=dict(t.split('=',1) for t in (ev/'HIT.LOG').read_text().split() if '=' in t)
+    # Completed-image dwell is now at least 16 beats and 146 BIOS ticks.
+    # The 32-second original fixture must still advance through two scenes.
+    need(fx.get('fx_buffer')=='1' and int(fx.get('fx_switches','0'))>=2,'packed left panel ready and completed scenes rotate')
     need('hits=0 misses=64' in (ev/'MISS.LOG').read_text(),'all-miss run')
     for log,res in (('SKIP','result=1'),('SESC','result=0'),('SCALM','calm=1'),('FALLBACK','result=0')):
         text=(ev/f'{log}.LOG').read_text()

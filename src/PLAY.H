@@ -26,10 +26,6 @@
 #define BURST_FRAMES 6
 #define BURST_TOP (HIT_Y-12)
 #define PARTS 12
-#define TUN_X 52
-#define TUN_Y 96
-#define TUN_R 46
-#define STARS 8
 /* Pixels of travel above and below the hit line, in 1/256 tick units. */
 #define LOOK_AHEAD ((long)(HIT_Y-LANE_TOP+GEM_H)*256/SCROLL+256)
 #define LOOK_BEHIND ((long)(LANE_BOT-HIT_Y+GEM_H)*256/SCROLL+256)
@@ -62,14 +58,11 @@ static void beat_next(BeatCur *c)
     if(c->seg<nsegs)c->t=segs[c->seg].start;
 }
 static long beat_fine(const BeatCur *c){return (long)(c->t>>8);}
+#include "LEFT.H"
 
-/* Far cache (inside LINK /CP headroom): the static tunnel, for erasing
-   pulse rings by byte copy, and pre-rendered judgment words. */
-#define CACHE_BYTES 14336
-#define TUN_B0 ((TUN_X-TUN_R)>>1)
-#define TUN_BW 47
-#define TUN_Y0 (TUN_Y-TUN_R)
-#define TUN_ROWS (TUN_R*2+1)
+/* Far cache (inside LINK /CP headroom): pre-rendered judgment words and
+   key caps. The left-panel window has its own 4800-byte buffer. */
+#define CACHE_BYTES 9216
 typedef struct { unsigned off,w,h,stride; } Sprite;
 static unsigned char far *cache;
 static unsigned cache_used;
@@ -109,7 +102,7 @@ static unsigned char bg_band(int y,unsigned l,int pressed)
     }
     if(!d)return 0xff;
     if(d==1)return 0xbb;
-    return (y&1)?0x30:0x03;
+    return (y&1)?0x10:0x01;
 }
 static void lanes_init(void)
 {
@@ -133,11 +126,11 @@ static void lanes_init(void)
         for(l=0;l<4;l++) {
             /* l==3 builds the grey "missed" gem; corners are dark. */
             if(k)c=0;
-            else if(r==0)c=l<3?15:7;
+            else if(r==0)c=l<3?15:8;
             else if(r==GEM_H-1)c=l<3?lane_dk[l]:0;
-            else if(x==0)c=l<3?15:7;
+            else if(x==0)c=l<3?15:8;
             else if(x==GEM_B*2-1)c=l<3?lane_dk[l]:0;
-            else if(r==1 && x>=3 && x<=6)c=l<3?15:7;
+            else if(r==1 && x>=3 && x<=6)c=l<3?15:8;
             else c=l<3?lane_fg[l]:8;
             if(l<3)set_nib(gem_val[l][r],x,c);else set_nib(dead_val[r],x,c);
         }
@@ -175,7 +168,7 @@ static void lane_row(unsigned l,unsigned r,unsigned code)
     code&=0x7f;
     if(code<RC_BURST) {
         if(code==RC_BEAT)base=0x80;
-        else if(code==RC_BAR)base=0x78;
+        else if(code==RC_BAR)base=0x88;
         _fmemset(v,(int)base,LANE_IW);
         return;
     }
@@ -288,7 +281,7 @@ static void cap_draw(unsigned l,unsigned down)
         bevel(x,CAP_Y+1,24,13,15,lane_dk[l],lane_fg[l]);
         text(x+10,CAP_Y+4,s,0,lane_fg[l]);
     } else {
-        bevel(x,CAP_Y,24,13,7,0,8);
+        bevel(x,CAP_Y,24,13,15,0,8);
         text(x+10,CAP_Y+3,s,lane_fg[l],8);
     }
 }
@@ -318,157 +311,26 @@ static void caps_frame(void)
     }
 }
 
-/* Tunnel: static dithered diamonds, beat pulses and star streaks on top.
-   Anything erased is restored from tunnel_bg(), so no saved pixels. */
-static unsigned tunnel_bg(int x,int y)
-{
-    int d=(x>TUN_X?x-TUN_X:TUN_X-x)+(y>TUN_Y?y-TUN_Y:TUN_Y-y),p=(x+y)&1;
-    if(d>TUN_R)return 0;
-    if(d==46 || d==30 || d==14)return 11;
-    if(d<=7)return p?15:11;
-    if(d<=14)return p?11:3;
-    if(d<=22)return p?3:1;
-    if(d<=30)return p?1:0;
-    if(d<=38)return p?9:1;
-    return p?1:0;
-}
-static void tunnel_draw(void)
-{
-    int y,x,w;
-    for(y=TUN_Y-TUN_R;y<=TUN_Y+TUN_R;y++) {
-        w=TUN_R-(y>TUN_Y?y-TUN_Y:TUN_Y-y);
-        for(x=TUN_X-w;x<=TUN_X+w;x++)px(x,y,tunnel_bg(x,y));
-    }
-    if(cache)for(y=0;y<TUN_ROWS;y++)
-        _fmemcpy(cache+(unsigned)y*TUN_BW,video+row_ofs[TUN_Y0+y]+TUN_B0,TUN_BW);
-}
-/* Diamond |dx|+|dy|=r, two points per row. Erasing copies the two bytes
-   back from the cached tunnel; rings sit four pixels apart, so a restored
-   neighbour pixel never belongs to another ring. */
-static void ring(int r,int color)
-{
-    int dy,k,y;unsigned a,b;unsigned char far *p;const unsigned char far *q;
-    unsigned char hi=(unsigned char)(color<<4),lo=(unsigned char)color;
-    if(r<2)return;
-    for(dy=-r;dy<=r;dy+=2) {
-        k=r-(dy<0?-dy:dy);y=TUN_Y+dy;
-        a=(unsigned)(TUN_X-k)>>1;b=(unsigned)(TUN_X+k)>>1;
-        p=video+row_ofs[y];
-        if(color<0) {
-            if(cache){q=cache+(unsigned)(y-TUN_Y0)*TUN_BW-TUN_B0;p[a]=q[a];p[b]=q[b];}
-            else{px(TUN_X-k,y,tunnel_bg(TUN_X-k,y));px(TUN_X+k,y,tunnel_bg(TUN_X+k,y));}
-            continue;
-        }
-        /* TUN_X is even: TUN_X-k and TUN_X+k share parity. */
-        if(k&1){p[a]=(unsigned char)((p[a]&0xf0)|lo);p[b]=(unsigned char)((p[b]&0xf0)|lo);}
-        else {p[a]=(unsigned char)((p[a]&0x0f)|hi);p[b]=(unsigned char)((p[b]&0x0f)|hi);}
-    }
-}
-static int ring_shown[2],ring_col[2];
-/* One bright ring per beat (white on bar lines) and a dim one on the
-   off-beat, each growing from the centre to the rim over one beat. */
-static void pulses_frame(long nowf)
-{
-    long tb,tn,period;int r[2],col[2];unsigned i,bar=0;BeatCur n;
-    r[0]=r[1]=0;col[0]=col[1]=0;
-    if(!reduced && !no_fx && nowf>=0) {
-        if(nsegs) {
-            for(;;) {
-                n=pulse_cur;beat_next(&n);
-                if(!beat_valid(&n) || beat_fine(&n)>nowf)break;
-                pulse_cur=n;
-            }
-            tb=beat_fine(&pulse_cur);bar=!(beat_index(&pulse_cur)&3);
-            n=pulse_cur;beat_next(&n);
-            if(beat_valid(&n))period=beat_fine(&n)-tb;
-            else period=pulse_cur.k?(long)(segs[pulse_cur.seg].period>>8):2330L;
-        } else {
-            period=8*256L;tb=nowf-nowf%period;bar=!((tb/period)&3);
-        }
-        if(period<256)period=256;
-        tn=nowf-tb;
-        if(tn>=0 && tn<period) {
-            r[0]=4+(int)(tn*7/period)*6;
-            col[0]=bar?15:11;
-        }
-    }
-    {
-        int erased[2],changed[2];
-        for(i=0;i<2;i++) {
-            changed[i]=r[i]!=ring_shown[i] || col[i]!=ring_col[i];
-            erased[i]=changed[i]?ring_shown[i]:-1;
-            if(changed[i])ring(ring_shown[i],-1);
-        }
-        for(i=0;i<2;i++) {
-            if(changed[i] || r[i]==erased[0] || r[i]==erased[1])
-                if(r[i])ring(r[i],col[i]);
-            ring_shown[i]=r[i];ring_col[i]=col[i];
-        }
-    }
-}
-static const signed char star_dir[16][2]={
-    {64,0},{59,24},{45,45},{24,59},{0,64},{-24,59},{-45,45},{-59,24},
-    {-64,0},{-59,-24},{-45,-45},{-24,-59},{0,-64},{24,-59},{45,-45},{59,-24}};
-static unsigned star_seed=0x2a5d;
-static unsigned rnd(void){star_seed=star_seed*25173u+13849u;return star_seed>>4;}
-static long star_t0[STARS];
-static unsigned char star_k[STARS],star_v[STARS];
-static int star_xy[STARS][4];
-/* Shifts on a positive bias instead of signed IDIV (170 clocks each). */
-static void star_pos(unsigned i,int dist,int *x,int *y)
-{
-    int t=(int)(((unsigned)(star_dir[star_k[i]][1]*dist+16384))>>6)-256;
-    *x=TUN_X-256+(int)(((unsigned)(star_dir[star_k[i]][0]*dist+16384))>>6);
-    *y=TUN_Y-256+(int)(((unsigned)(t*27+8192))>>5);
-}
-static void stars_reset(long nowf)
-{
-    unsigned i;
-    for(i=0;i<STARS;i++) {
-        star_k[i]=(unsigned char)(rnd()&15);star_v[i]=(unsigned char)(24+(rnd()&31));
-        star_t0[i]=nowf-(long)(rnd()&1023);star_xy[i][0]=-1;
-    }
-}
-static unsigned star_phase;
-static void stars_frame(long nowf)
-{
-    unsigned i;int d,x,y,tx,ty,live=!(reduced || no_fx);
-    if((++star_phase&1) && live)return;
-    for(i=0;i<STARS;i++) {
-        if(star_xy[i][0]>=0) {
-            px(star_xy[i][0],star_xy[i][1],tunnel_bg(star_xy[i][0],star_xy[i][1]));
-            px(star_xy[i][2],star_xy[i][3],tunnel_bg(star_xy[i][2],star_xy[i][3]));
-            star_xy[i][0]=-1;
-        }
-        if(!live)continue;
-        d=(int)(nowf-star_t0[i]);
-        d=d<0 || d>8000?999:56+(int)((((unsigned)d>>5)*star_v[i])>>6);
-        star_pos(i,d,&x,&y);
-        if(d<56 || x<1 || x>99 || y<44 || y>148) {
-            star_k[i]=(unsigned char)(rnd()&15);star_v[i]=(unsigned char)(24+(rnd()&31));
-            star_t0[i]=nowf;continue;
-        }
-        star_pos(i,d-4,&tx,&ty);
-        px(tx,ty,8);px(x,y,15);
-        star_xy[i][0]=x;star_xy[i][1]=y;star_xy[i][2]=tx;star_xy[i][3]=ty;
-    }
-}
-
 /* HUD panel, meters, words, progress. */
 static unsigned long hud_score;
 static unsigned hud_combo,hud_best,hud_hits,hud_misses,hud_acc,hud_prog,hud_word,hud_demo;
-static unsigned meter_lvl[3],meter_shown[3],hud_seen;
+static unsigned meter_lvl[4],meter_shown[4],hud_seen;
 static int hud_score_tick;
 static int meter_tick;
-static const unsigned char rows_cyan[]={15,15,11,11,11,3};
-static const unsigned char rows_green[]={15,15,10,10,10,2};
-static const unsigned char rows_red[]={15,12,12,12,4,4};
+/* Playfield and results never use logical 3, 4, 7 or 9: the left panel
+   cycles those through the palette. Title and splash use the defaults. */
+static const unsigned char rows_cyan[7]={15,15,11,11,11,1,1};
+static const unsigned char rows_green[7]={15,15,10,10,10,2,2};
+static const unsigned char rows_red[7]={15,12,12,12,12,6,6};
+static const unsigned char pf_rainbow[]={12,14,10,11,13,15};
+static const unsigned char pf_chrome[]={15,15,11,11,11,1,15,8,8,15,15};
+static const unsigned char pf_gold[]={15,15,14,14,14,14,6,12,12,14,14,15};
 static const unsigned char rows_gold[]={15,15,14,14,14,14,6,4,12,14,14,15};
 static const unsigned char rows_chrome[]={15,15,11,11,11,3,15,7,7,15,15};
 static const unsigned char rainbow[]={12,14,10,11,9,13};
 static const unsigned char rows_combo7[7]={15,14,14,14,14,6,6};
 static const unsigned char rows_gold7[7]={15,15,14,14,12,13,13};
-static const unsigned char rows_acc7[7]={15,15,15,11,11,3,3};
+static const unsigned char rows_acc7[7]={15,15,15,11,11,1,1};
 static void style(Style *s,unsigned scale,unsigned fg,unsigned outline,unsigned shadow,unsigned bg)
 {
     s->scale=(unsigned char)scale;s->fg=(unsigned char)fg;s->outline=(unsigned char)outline;
@@ -512,7 +374,7 @@ static void words_init(void)
         style(&s,2,15,1,NO_COLOR,0);
         if(k==1){s.rows=rows_green;s.nrows=6;s.outline=2;}
         else if(k<8){s.rows=rows_cyan;s.nrows=6;}
-        else {s.rows=rows_red;s.nrows=6;s.outline=4;}
+        else {s.rows=rows_red;s.nrows=6;s.outline=5;}
         sprite_make(&word_spr[k],word_text[k],&s);
     }
 }
@@ -524,7 +386,7 @@ static void word_draw(unsigned w)
     if(!kind)return;
     if(kind>=4) {
         sprintf(buf,"%u COMBO",(kind-4)*25);n=strlen(buf);
-        if(n<=8)text2x(269-(int)n*6,146,buf,0,rainbow,6,0);
+        if(n<=8)text2x(269-(int)n*6,146,buf,0,pf_rainbow,6,0);
         else text(269-(int)n*3,150,buf,14,0);
         return;
     }
@@ -587,16 +449,17 @@ static void hud_frame(int now)
         hud_prog=v;
     }
     if(no_fx)return;
-    for(l=0;l<3;l++) {
+    for(l=0;l<4;l++) {
         if(!l)lvl=lead_div?15-lead_att:0;
+        else if(l==3)lvl=drum_kind!=255?15-drum_att:0;
         else lvl=(prev_div[l] && prev_div[l]!=65535 && prev_att[l]<15)?15-prev_att[l]:0;
         lvl=(lvl*12+14)/15;
         if(lvl>=meter_lvl[l])meter_lvl[l]=lvl;else meter_lvl[l]--;
         if(meter_lvl[l]==meter_shown[l])continue;
         for(s=0;s<12;s++) {
             if((s<meter_lvl[l])==(s<meter_shown[l]) && meter_shown[l]!=255)continue;
-            if(s<meter_lvl[l])fill(252+l*20,136-s*4,14,3,s<7?10:(s<10?14:12));
-            else {fill(252+l*20,136-s*4,14,3,0);span(252+l*20,137-s*4,14,8);}
+            if(s<meter_lvl[l])fill(244+l*18,136-s*4,14,3,s<7?10:(s<10?14:12));
+            else {fill(244+l*18,136-s*4,14,3,0);span(244+l*18,137-s*4,14,8);}
         }
         meter_shown[l]=meter_lvl[l];
     }
@@ -607,7 +470,7 @@ static void hud_reset(void)
     hud_score=1;hud_combo=65535;hud_best=hud_hits=hud_misses=65535;
     hud_acc=65535;hud_prog=0;hud_seen=65535;hud_word=65535;hud_demo=0;
     milestone_until=-32767;milestone_last=0;meter_tick=-32767;
-    for(l=0;l<3;l++){meter_lvl[l]=0;meter_shown[l]=255;}
+    for(l=0;l<4;l++){meter_lvl[l]=0;meter_shown[l]=255;}
     if(score==0)hud_score=1;
 }
 static const char *diff_name(void)
@@ -619,7 +482,7 @@ static void scene_draw(void)
 {
     unsigned l,i,n;int y;Style st;char line[17];const char *t;
     clear_screen();
-    style(&st,1,15,NO_COLOR,1,0);st.letters=rainbow;st.nletters=6;
+    style(&st,1,15,NO_COLOR,1,0);st.letters=pf_rainbow;st.nletters=6;
     fancy(center_x("RADIO SHACK RAVE",1),2,"RADIO SHACK RAVE",&st);
     span(104,13,104,8);
     for(l=0;l<3;l++) {
@@ -632,7 +495,6 @@ static void scene_draw(void)
     memset(rows_shown,255,sizeof(rows_shown));lanes_full=1;
     for(l=0;l<3;l++){cap_shown[l]=255;burst_t0[l]=-32767;burst_seen[l]=flash_until[l];}
     if(!cap_spr[0][0].h)caps_init();
-    tunnel_draw();ring_shown[0]=ring_shown[1]=0;
     text(6,18,demo_mode?"DEMO PLAY":"NOW PLAYING",demo_mode?13:8,0);
     /* Title, wrapped on a space into two 16-character lines. */
     t=song_title;n=strlen(t);
@@ -645,25 +507,26 @@ static void scene_draw(void)
     }
     if(demo_mode){style(&st,2,13,5,NO_COLOR,0);fancy(6,150,"DEMO",&st);}
     else {
-        text(6,150,"ACCURACY",7,0);
+        text(6,150,"ACCURACY",8,0);
         if(difficulty<4)text(6,182,diff_name(),difficulty==0?10:difficulty==1?14:difficulty==2?12:13,0);
     }
-    bevel(222,17,96,56,9,1,0);
-    text(228,21,"SCORE",7,0);text(228,46,"COMBO",7,0);
-    text(226,80,"PSG",7,0);
-    for(l=0;l<3;l++){line[0]="ABC"[l];line[1]=0;text(256+l*20,80,line,lane_fg[l],0);}
+    bevel(222,17,96,56,11,1,0);
+    text(228,21,"SCORE",8,0);text(228,46,"COMBO",8,0);
+    text(222,80,"PSG",8,0);
+    /* A B C tones and N, the noise channel that carries the drums. */
+    for(l=0;l<4;l++){line[0]="ABCN"[l];line[1]=0;text(248+l*18,80,line,l<3?lane_fg[l]:15,0);}
     text(4,193,"ESC MENU  R RETRY  M CALM",8,0);
     hud_reset();
 }
-static unsigned long prof[5];
+static unsigned long prof[4];
 static void playfield_frame(long nowf,int now)
 {
-    unsigned long t0=clk_fine(),t1;
-    lanes_frame(nowf,now);t1=clk_fine();prof[0]+=t1-t0;t0=t1;
+    unsigned long t0=clk_fine(),t1,start=t0;
+    lanes_frame(nowf,now);audio_poll();t1=clk_fine();prof[0]+=t1-t0;t0=t1;
     caps_frame();t1=clk_fine();prof[1]+=t1-t0;t0=t1;
-    pulses_frame(nowf);t1=clk_fine();prof[2]+=t1-t0;t0=t1;
-    stars_frame(nowf);t1=clk_fine();prof[3]+=t1-t0;t0=t1;
-    hud_frame(now);t1=clk_fine();prof[4]+=t1-t0;
+    hud_frame(now);audio_poll();t1=clk_fine();prof[2]+=t1-t0;t0=t1;
+    fx_frame(nowf,(unsigned)(t1-start>65535UL?65535UL:t1-start));
+    prof[3]+=clk_fine()-t0;
 }
 
 /* Results card, revealed in steps. */
@@ -677,39 +540,45 @@ static char grade_letter(void)
     if(a>=700)return 'C';
     return 'D';
 }
+/* The high score lines (HISCORE.H) take over the card's bottom rows when a
+   run earns a place. */
+static int hs_state;
+static void hs_draw(void);
 static void results_frame(int age)
 {
     Style st;char buf[24],g[2];const char *head;unsigned a;
     static const int at[9]={0,6,9,12,15,18,21,28,34};
+    fx_palette_only(song_fine());
     while(results_step<9 && age>=at[results_step]) {
         switch(results_step) {
         case 0:
-            bevel(60,34,200,132,11,1,0);bevel(62,36,196,128,9,0,NO_COLOR);
+            bevel(60,34,200,132,11,1,0);bevel(62,36,196,128,8,0,NO_COLOR);
             head=misses?"SONG CLEAR!":"FULL COMBO!";
-            style(&st,2,15,1,NO_COLOR,0);st.letters=rainbow;st.nletters=6;
+            style(&st,2,15,1,NO_COLOR,0);st.letters=pf_rainbow;st.nletters=6;
             fancy(center_x(head,2),42,head,&st);
-            span(70,63,180,9);
+            span(70,63,180,8);
             sfx_note(0,72,4,2,10);break;
         case 1:sprintf(buf,"AWESOME  %4u",fx_awesome);text(128,72,buf,11,0);sfx_blip(76);break;
         case 2:sprintf(buf,"NICE     %4u",fx_nice);text(128,82,buf,10,0);sfx_blip(79);break;
         case 3:sprintf(buf,"MISS     %4u",misses);text(128,92,buf,12,0);sfx_blip(81);break;
         case 4:sprintf(buf,"MAX COMBO%4u",best);text(128,102,buf,14,0);sfx_blip(84);break;
-        case 5:a=accuracy10();sprintf(buf,"ACCURACY%3u.%u%%",a/10,a%10);text(128,112,buf,15,0);sfx_blip(86);break;
+        case 5:a=accuracy10();sprintf(buf,"ACCURACY %3u.%u%%",a/10,a%10);text(128,112,buf,15,0);sfx_blip(86);break;
         case 6:sprintf(buf,"SCORE  %7lu",score);text(128,122,buf,15,0);sfx_blip(88);break;
         case 7:
             g[0]=grade_letter();g[1]=0;
             style(&st,6,15,0,1,0);
-            st.rows=g[0]=='S'?rows_gold:rows_chrome;st.nrows=g[0]=='S'?12:11;
+            st.rows=g[0]=='S'?pf_gold:pf_chrome;st.nrows=g[0]=='S'?12:11;
             if(g[0]=='D'){st.rows=rows_red;st.nrows=6;}
-            fancy(76,72,g,&st);text(84,126,"GRADE",7,0);
+            fancy(76,72,g,&st);text(84,126,"GRADE",8,0);
             if(g[0]<='B' || g[0]=='S')sfx_chord(84,79,72,2,3,24);
             else sfx_chord(76,72,64,3,3,16);
             break;
         case 8:
             if(demo_mode)text(center_x("PRESS SPACE TO PLAY",1),148,"PRESS SPACE TO PLAY",15,0);
-            else text(center_x("R RETRY    SPACE MENU",1),148,"R RETRY    SPACE MENU",7,0);
+            else if(!hs_state)text(center_x("R RETRY    SPACE MENU",1),148,"R RETRY    SPACE MENU",8,0);
             break;
         }
         results_step++;
     }
+    if(results_step>=9)hs_draw();
 }

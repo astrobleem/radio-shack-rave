@@ -3,7 +3,9 @@
 In render mode the game runs on a virtual clock: every presented frame is
 saved as Fnnnnn.RAW (160 bytes x 200 rows, Tandy mode 9 nibbles) and the
 clock advances exactly half a BIOS tick; every SN76496 write goes to PSG.LOG
-as "<time in 1/256 tick> <byte>". This script re-synthesizes the PSG and
+as "<time in 1/256 tick> <byte>", and every palette change goes to PAL.LOG
+as "<frame> <16 physical colors>". This script applies the palette per
+frame, re-synthesizes the PSG and
 muxes it with the frames through ffmpeg, so the video is frame-exact and
 independent of emulator speed.
 
@@ -79,14 +81,24 @@ def main():
     with wave.open(str(wav),'wb') as w:
         w.setnchannels(1);w.setsampwidth(2);w.setframerate(RATE)
         w.writeframes((audio*32000).astype('<i2').tobytes())
-    lut=np.array(PAL,dtype=np.uint8)
+    base=np.array(PAL,dtype=np.uint8)
+    changes=[]
+    if (a.capture/'PAL.LOG').exists():
+        for line in (a.capture/'PAL.LOG').read_text().split('\n'):
+            v=line.split()
+            if len(v)==17:changes.append((int(v[0]),[int(c) for c in v[1:]]))
+    changes.sort(key=lambda c:c[0])
     W,H=320*a.scale,240*a.scale
     cmd=['ffmpeg','-y','-loglevel','error','-f','rawvideo','-pix_fmt','rgb24','-s','320x200',
          '-framerate',f'{FPS:.6f}','-i','-','-i',str(wav),
          '-vf',f'scale={W}:{H}:flags=neighbor,fps=60','-c:v','libx264','-pix_fmt','yuv420p',
          '-crf','16','-c:a','aac','-b:a','192k','-shortest',str(a.output)]
     proc=subprocess.Popen(cmd,stdin=subprocess.PIPE)
+    pal=list(range(16));ci=0
     for f in frames:
+        n=int(f.stem[1:])
+        while ci<len(changes) and changes[ci][0]<=n:pal=changes[ci][1];ci+=1
+        lut=base[pal]
         b=np.frombuffer(f.read_bytes(),dtype=np.uint8)
         idx=np.empty(b.size*2,dtype=np.uint8);idx[0::2]=b>>4;idx[1::2]=b&15
         proc.stdin.write(lut[idx].tobytes())

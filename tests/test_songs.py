@@ -115,13 +115,18 @@ static int load_result=1,next_result=1;
 static int owned,keyboard_owned,video_owned;
 static unsigned old_mode=3,restored_mode,releases,vectors;
 static void (*old_keyboard)(void);
-static FILE *psg_log;
+static FILE *psg_log,*pal_log;
 static void _dos_setvect(unsigned n,void (*v)(void)){assert(n==9 && v==old_keyboard);vectors++;}
 static void DosSoundRelease(void){releases++;}
 static void mode(unsigned n){restored_mode=n;}
 static void lead_step(int n){(void)n;}
 static void automatic_step(int n){(void)n;}
 static void music_step(int n){(void)n;}
+static void drums_step(long n){(void)n;}
+#define HS_ENTER 1
+static int hs_state,hs_begun;
+static int hs_entry_key(unsigned k){(void)k;return 0;}
+static void hs_begin(int d){(void)d;hs_begun++;}
 static int song_time(void){return (int)(clock_tick-origin)-36;}
 static long song_fine(void){return (long)song_time()*256;}
 static int fine_tick(long n){return (int)(n/256);}
@@ -151,13 +156,22 @@ int main(void) {
  songs_mode=1;song_ready=0;lead_div=1;
  assert(song_prepare());assert(cancels==1 && stops==1 && loads==1 && !lead_div);
  assert(song_prepare());assert(loads==1);
- assert(game_run(1)==A_DEMO);assert(resets==1 && !song_ready && clock_tick>=153);
+ /* The attract loop: a finished demo returns to the splash. */
+ assert(game_run(1)==A_SPLASH);assert(resets==1 && !song_ready && clock_tick>=153);
+ assert(hs_begun==1); /* results always offer the high score table a look */
  assert(song_prepare());assert(loads==2 && cancels==2 && stops==2);
  key_once=57;key_at=clock_tick;assert(game_run(1)==A_PLAY);assert(song_ready);
  assert(song_prepare());assert(loads==2); /* Space retains demo song. */
- key_once=1;key_at=clock_tick;assert(game_run(1)==A_EXIT);assert(exit_reason==1);
+ /* Escape in the demo goes back to the title, not to DOS. */
+ key_once=1;key_at=clock_tick;assert(game_run(1)==A_TITLE);assert(!exit_reason);
  song_ready=0;next_result=0;assert(song_prepare());assert(!songs_mode && loads==4);
  songs_mode=1;song_ready=0;load_result=0;assert(!song_prepare());assert(!songs_mode);
+ /* After any game the next song is chosen when the title is entered, so the
+    marquee names it and Space/idle demo play that same song. */
+ songs_mode=1;next_result=1;load_result=1;song_ready=0;n=loads;
+ assert(action_ready(A_TITLE));assert(loads==n+1 && song_ready);
+ assert(action_ready(A_PLAY) && action_ready(A_DEMO));assert(loads==n+1);
+ assert(action_ready(A_SPLASH) && action_ready(A_EXIT));assert(loads==n+1);
  songs_mode=0;key_once=0;assert(game_run(1)==A_SPLASH);
  tour_mode=1;assert(game_run(1)==A_EXIT);
  n=resets;auto_mode=4;key_once=19;key_at=clock_tick;
@@ -166,7 +180,7 @@ int main(void) {
  cleanup();assert(!owned && !keyboard_owned && !video_owned && !lead_div && !psg_log);
  assert(releases==1 && vectors==1 && restored_mode==3);
  cleanup();assert(releases==1 && vectors==1); /* Idempotent final cleanup. */
- puts("PASS production demo/end/Space/Escape/fallback/mute/reset");return 0;
+ puts("PASS production demo/end/Space/Escape-to-title/attract/fallback/mute/reset/title-names-next");return 0;
 }
 '''
 

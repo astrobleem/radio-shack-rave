@@ -1,34 +1,113 @@
 {
-  "status": "EXPERIMENTAL; LOCAL_SOURCE_TESTED; EXACT_HEAD_CI_REQUIRED_FOR_FIXED_TOOLCHAIN_RUNTIME",
-  "engine": "v6 showcase + lazy playlist/demo + word rotation",
-  "runtime_sha256": "1787a5efe93d0828a7951ceff5fab12f5d472eb0daf1fbb8acc447aab1ef4e9c",
+  "status": "EXPERIMENTAL; EXACT_RUNTIME_EMULATOR_CI_PASS; FINAL_SOURCE_HEAD_CI_REQUIRED",
+  "engine": "v6 title selection, packed effects/completed dwell, far-memory RBG5 songs/drums/high scores, offline MIDI tool",
+  "runtime_sha256": "496978d34df121d5039fc7d05362d35daf1ffbf4d748aeb5c73ddd75a89535fd",
   "toolchains": {
     "bundled_runtime": "Official OpenWatcom2 2026-10-01-Build, fresh Linux CI artifact; strict rebuild comparison enabled",
     "CI": "Official immutable date tag2026-10-01-Build; SHA256 independently downloaded and verified before pinning"
   },
   "local_tests": {
-    "host_tests": 20,
-    "pack_regressions": 9,
-    "native": "DOS enumeration RBG2/3/4, malformed selection skip, shuffle cycles including64candidates, disappeared-file skip, empty/all-invalid fallback, explicit playback, AUTO/MISS exact audio, demo advance, IRQ1 Escape and cleanup. Word geometry and hit/miss images inspected.",
-    "public_host_unit_tests": 30,
-    "public_source_rebuild": "Public source with existing Windows compiler exactly reproduces local native-tested Windows runtime0649e8...; bundled fixed-toolchain runtime is qualified by exact-head CI."
+    "host_unit_tests": 45,
+    "strict_C89_lint": "PASS",
+    "image_palette_pairs_equal": 56,
+    "original_core_hit_reference_equal": true,
+    "local_rebuild19_sha256": "b87302611488b8b61bbac61523b0a7df819f62f8d8e5ab453ee844c21e9b03b5",
+    "local_rebuild19_equals_previously_tested_NEW": true,
+    "current_bundled_runtime": "Fresh official fixed-toolchain CI artifact; strict byte comparison and native suite PASS in run 38095758022",
+    "private_chart_loader_checks": 29
   },
   "bounds": {
     "candidate_filenames": 64,
     "directory_matches": 1024,
-    "chart_notes": 512,
-    "states": 1024,
-    "word_cache_used": 12525,
-    "word_cache_bytes": 14336,
-    "maximum_image_plus_allocation_bytes": 121600,
-    "PSP_environment_excluded": true
+    "chart_notes": 2048,
+    "states": 4096,
+    "word_cache_used": 8658,
+    "word_cache_bytes": 9216,
+    "PSP_environment_excluded": true,
+    "fx_scene_buffer_bytes": 0,
+    "lead_notes": 2048,
+    "backing_states": 4096,
+    "drum_hits": 4096,
+    "song_tables": "far memory, allocated per song (grow-only): states*12 + notes*11 + drums*4 bytes; a 2048-note, 4096-state song needs about 72 KB more",
+    "hiscore_table_bytes": 3456,
+    "packed_fx_far_bytes": 33600,
+    "source_mml_bytes": 131072,
+    "midi_input_bytes": 8388608,
+    "midi_grid_cells": 50000,
+    "midi_reduction_cell_work": 5000000,
+    "maximum_image_plus_allocation_bytes": 169184
   },
   "host_shutdown": "Local DOSBox-X2025.12.01 exited with0xC0000005 after guest logs completed; cause unresolved. Earlier0xC0000409 retained locally. Guest cleanup records pass independently.",
   "unimplemented": [
     "backing untied-note attack/envelope fix",
-    "song noise/drum format extension",
     "RMS VU"
   ],
-  "physical": "No physical Tandy or4.77MHz performance/listening claim. Only original demo and synthetic fixtures published; private song media excluded.",
-  "local_tested_windows_runtime_sha256": "0649e8cbc32f5f08004b5811e3183d2d8c5c5d324cc3c828a24ad5e84ea4e8a9"
+  "physical": "User reports NEW.EXE and Call Me work well. Exact played artifact identity unresolved; no physical timing or full hardware qualification claimed. Public repository ships original music and synthetic fixtures only.",
+  "left_panel": {
+    "scenes": [
+      "DJ ALFREDO",
+      "PLASMA",
+      "STARBURST+CUBE",
+      "TUNNEL+STARS",
+      "ROTOZOOM",
+      "COPPER",
+      "FLAG",
+      "GRID"
+    ],
+    "palette_cycled_logical_colors": [
+      3,
+      4,
+      7,
+      9
+    ],
+    "palette_writes": "Tandy video array 3DAh index 10h+n, 3DEh data, flushed in vertical blank",
+    "emulator_display_check": "DOSBox-X machine=tandy screen recorded on Xvfb with ffmpeg x11grab: cycled colors visible in the real emulated output",
+    "cpu_effects_budget": "24 fine units (~5 ms) per frame credit, capped at 72; rotozoom/flag skipped when the playfield alone averages over ~32 ms",
+    "calm": "no cycling, no motion, no scene changes; still figure drawn once",
+    "storage": "Host-packed final Tandy pixels; no scene heap image",
+    "minimum_completed_scene_beats": 16,
+    "minimum_completed_scene_BIOS_ticks": 146
+  },
+  "far_memory_songs": {
+    "emulator": "tests/dos_songs.py: 992 lead notes and 1270 backing states (old caps 512/1024) played to the last tick, every required note hit",
+    "memory": "not tested on a 256K machine; a song that does not fit is refused with a message"
+  },
+  "drum_channel": {
+    "format": "RBG5 = RBG4 + drum table (u16 count, u16 0, then u16 tick, u8 kind, u8 level)",
+    "kinds": [
+      "kick",
+      "snare",
+      "closed_hat",
+      "open_hat",
+      "crash",
+      "low_tom",
+      "high_tom"
+    ],
+    "emulator": "live and simulated hits equal the converter table; 33/33 at fixed 450 cycles after mid-frame audio polling (29/33 before)",
+    "audio_poll": "lead, backing and drums also serviced between playfield drawing stages; at fixed 450 cycles the original song audio trace now matches v5 native evidence byte for byte"
+  },
+  "hiscore": {
+    "file": "RAVE.HI (RHI1, up to 64 songs x top 5)",
+    "writes": "only after a real game earns a place and initials are confirmed with Enter; demos and scripted runs never write",
+    "critical_error": "INT 24h stub (mov al,3 / iret; ignore on DOS 2.x) installed only around file access",
+    "emulator": "tests/dos_hiscore.py: ranks 1-5 with ties below, full board, malformed file, unwritable file, scripted play writes nothing",
+    "not_tested": "a physical write-protected floppy (DOSBox-X cannot raise the critical error the same way)"
+  },
+  "integration_sources": {
+    "remote_runtime_base": "811fcf5bf7e76c604aa80d929538d6ab527a457a",
+    "midi_tool": "1cd2a3317874463647b4015f12c19e89baac5d90",
+    "side_effects": "a3171385302346e54fe6e5827e8064ba58f9b054",
+    "side_effect_evidence": "e257ccfcb4a6a7a63f179211a6836c0748f896c1"
+  },
+  "fixed_toolchain_artifact": {
+    "run": 38095678915,
+    "source_sha": "ec33f05c8f47f7be2d512a6d675d1f80a4601af0",
+    "sha256": "496978d34df121d5039fc7d05362d35daf1ffbf4d748aeb5c73ddd75a89535fd",
+    "bytes": 103732,
+    "native_tests": "PASS baseline diagnostics and original synthetic playlist/word fixtures",
+    "qualified_run": 38095758022,
+    "qualified_head": "c75af77e207f78f024898238cba7955103f8c09b",
+    "qualified_merge_tree": "d69d9aa6b0efa9c5aa79fc33091d8568385c21e9"
+  },
+  "final_source_CI": "Check final commit GitHub status; runtime identity is unchanged by offline tool/docs refinements."
 }

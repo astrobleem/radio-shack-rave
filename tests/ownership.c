@@ -15,8 +15,9 @@ int main(int argc,char **argv)
     fread(magic,1,4,f);ver=word(f);end=word(f);ns=word(f);taps=word(f);
     if(!((ver==2&&!memcmp(magic,"RBG2",4)) ||
          (ver==3&&!memcmp(magic,"RBG3",4)) ||
-         (ver==4&&!memcmp(magic,"RBG4",4))) || taps>MAX_NOTES){fclose(f);return 2;}
-    fseek(f,(ver==4?40L:12L)+12L*ns,SEEK_SET);
+         (ver==4&&!memcmp(magic,"RBG4",4)) ||
+         (ver==5&&!memcmp(magic,"RBG5",4))) || taps>MAX_NOTES){fclose(f);return 2;}
+    fseek(f,(ver==5?44L:ver==4?40L:12L)+12L*ns,SEEK_SET);
     for(i=0;i<taps;i++) {
         chart[i].tick=word(f);chart[i].end_tick=word(f);chart[i].divisor=word(f);
         chart[i].lane=getc(f);chart[i].attenuation=getc(f);

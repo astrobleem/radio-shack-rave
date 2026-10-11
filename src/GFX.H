@@ -59,6 +59,43 @@ static void bevel(int x,int y,int w,int h,unsigned light,unsigned dark,unsigned 
     span(x,y,w,light);vline(x,y,h,light);
     span(x+1,y+h-1,w-1,dark);vline(x+w-1,y+1,h-1,dark);
 }
+/* Tandy palette registers: index 10h+n to the video array address port
+   3DAh, physical color to 3DEh. Writes are kept in a shadow and flushed in
+   vertical blank (see frame_end). Render mode logs them per frame. */
+static unsigned frame_no;
+static unsigned char pal_hw[16],pal_want[16];
+static int pal_dirty;
+static FILE *pal_log;
+static void pal_identity(void)
+{
+    unsigned i;
+    for(i=0;i<16;i++)pal_hw[i]=pal_want[i]=(unsigned char)i;
+    pal_dirty=0;
+}
+static void pal_set(unsigned i,unsigned c)
+{
+    if(pal_want[i]!=c){pal_want[i]=(unsigned char)c;pal_dirty=1;}
+}
+static void pal_default(void)
+{
+    unsigned i;
+    for(i=0;i<16;i++)pal_set(i,i);
+}
+static void pal_flush(void)
+{
+    unsigned i;
+    if(!pal_dirty)return;
+    (void)inp(0x3da);
+    for(i=0;i<16;i++)if(pal_hw[i]!=pal_want[i]) {
+        outp(0x3da,0x10+i);outp(0x3de,pal_want[i]);pal_hw[i]=pal_want[i];
+    }
+    pal_dirty=0;
+    if(pal_log) {
+        fprintf(pal_log,"%u",frame_no);
+        for(i=0;i<16;i++)fprintf(pal_log," %u",pal_hw[i]);
+        fputc('\n',pal_log);
+    }
+}
 static void clear_screen(void)
 {
     unsigned b;

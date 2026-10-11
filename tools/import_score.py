@@ -6,6 +6,24 @@ from mml import parse,ScoreError,rounded,CLOCK,PITCH
 from chart_policy import select_required,separate_lane_windows
 
 DIFFICULTIES={'easy':500,'normal':280,'hard':200,'full':0}
+# Runtime bounds (src/BEAT.C, src/CORE.H): far tables sized per song.
+MAX_LEAD=2048
+MAX_STATES=4096
+MAX_DRUMS=4096
+# Drum kinds played on the noise channel, in collision priority order when
+# two hits land on the same BIOS tick (earlier in this list wins).
+DRUM_KINDS=['kick','snare','closed_hat','open_hat','crash','low_tom','high_tom']
+DRUM_PRIORITY=['crash','snare','kick','low_tom','high_tom','open_hat','closed_hat']
+def gm_drum(note):
+    """General MIDI percussion key -> drum kind, or None if unmapped."""
+    if note in (35,36):return 'kick'
+    if note in (37,38,39,40):return 'snare'
+    if note in (42,44,54,56,69,70,73,74,75,76,77,78,79,80,81):return 'closed_hat'
+    if note==46:return 'open_hat'
+    if note in (49,51,52,53,55,57,58,59):return 'crash'
+    if note in (41,43,45,61,63,64,66,68):return 'low_tom'
+    if note in (47,48,50,60,62,65,67,71,72):return 'high_tom'
+    return None
 DIFFICULTY_CODE={'easy':0,'normal':1,'hard':2,'full':3}
 TITLE_CHARS=set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !?'.,-:&/+")
 TITLE_MAX=24
@@ -47,7 +65,8 @@ def ranking(ns,index):
     return (len(notes),median,-index)
 
 def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='normal',gap_ms=None,
-            octave=4,length=4,tempo=120,volume=100,transpose=0,voice_transpose=None,title='',chart_policy='elapsed'):
+            octave=4,length=4,tempo=120,volume=100,transpose=0,voice_transpose=None,title='',chart_policy='elapsed',
+            drums=None):
     """Return exact byte artifacts; does not touch network or filesystem."""
     if difficulty not in DIFFICULTIES:raise ScoreError('difficulty must be easy/normal/hard/full')
     if gap_ms is None:gap_ms=DIFFICULTIES[difficulty]
@@ -69,11 +88,20 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
         if lead_policy=='melody':return (count*2>=max_attacks and count>0,median,count,order)
         return (count,median,order)
     ranks=sorted(range(len(voices)),key=rank_key,reverse=True)
+    drum_index=None
+    if drums is not None:
+        if not isinstance(drums,int) or not 1<=drums<=len(voices):raise ScoreError('drums must be an existing 1-based voice number')
+        drum_index=drums-1
+        if not audible(voices[drum_index]):raise ScoreError(f'drum voice {drums} has no audible notes')
+        if drums in voice_transpose:raise ScoreError('the drum voice keys General MIDI percussion; it cannot be transposed')
+        # The drum voice never competes for the lead or a tone channel.
+        ranks=[i for i in ranks if i!=drum_index]
     if lead=='auto':lead_index=ranks[0]
     else:
         try:lead_index=int(lead)-1
         except (ValueError,TypeError):raise ScoreError('lead must be auto or a 1-based voice number')
         if not 0<=lead_index<len(voices):raise ScoreError('lead voice does not exist')
+    if lead_index==drum_index:raise ScoreError('the drum voice cannot also be the lead')
     if not audible(voices[lead_index]):raise ScoreError('selected lead has no audible notes')
     if parts is None:
         selected=[lead_index]+[i for i in ranks if i!=lead_index and audible(voices[i])][:2]
@@ -81,6 +109,7 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
         if not 1<=len(parts)<=3 or len(set(parts))!=len(parts):raise ScoreError('parts needs 1..3 distinct voice numbers')
         if any(not isinstance(i,int) or not 1<=i<=len(voices) for i in parts):raise ScoreError('selected part does not exist')
         if lead_index+1 not in parts:raise ScoreError('parts must include selected lead')
+        if drums is not None and drums in parts:raise ScoreError('the drum voice plays on the noise channel; leave it out of parts')
         selected=[lead_index]+[i-1 for i in parts if i!=lead_index+1]
     transformed={};transpositions=[]
     for vi in selected:
@@ -111,7 +140,7 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
         d=rounded(F(3579545,32*PITCH[n['note']-45]));lane=(n['note']-45)%3
         chosen.append((tick,off,d,lane,15-n['volume'],n['note'],int(automatic)))
         if not automatic:last=n['start'];required+=1
-    if not chosen or len(chosen)>512:raise ScoreError('native score requires1..512total lead events; source must fit, never discard melody to meet storage bounds')
+    if not chosen or len(chosen)>MAX_LEAD:raise ScoreError(f'native score requires 1..{MAX_LEAD} total lead events; source must fit, never discard melody to meet storage bounds')
     if any(b[0]<a[1] for a,b in zip(chosen,chosen[1:])):raise ScoreError('selected lead intervals overlap after tick quantization')
     total=rounded(duration*CLOCK)
     if not 1<=total<=10924 or chosen[-1][0]>=total:raise ScoreError('native score duration/onset invalid')
@@ -134,24 +163,47 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
             collisions.append(dict(tick=row[0],kept_seconds=rational(at)))
             packed[-1]=row
         else:packed.append(row)
-    if not 2<=len(packed)<=1024:raise ScoreError('native stream requires 2..1024 states')
+    if not 2<=len(packed)<=MAX_STATES:raise ScoreError(f'native stream requires 2..{MAX_STATES} states')
     segments=beat_segments(tempo_map,duration)
-    blob=struct.pack('<4sHHHH',b'RBG4',4,total,len(packed),len(chosen))
+    # Drum voice -> noise-channel hits, one per BIOS tick (priority wins).
+    drum_events={};drum_collisions=[];by_kind={k:0 for k in DRUM_KINDS}
+    if drum_index is not None:
+        for n in voices[drum_index]:
+            if not (n['note'] and n['volume']):continue
+            kind=gm_drum(n['note'])
+            if kind is None:raise ScoreError(f'drum voice {drums} at {rational(n["start"])}s: note {n["note"]} is not a mapped General MIDI percussion key (35..81)')
+            tick=rounded(n['start']*CLOCK)
+            if tick>=total:raise ScoreError(f'drum voice {drums} at {rational(n["start"])}s: hit at or after the song end')
+            ev=(DRUM_KINDS.index(kind),15-n['volume'])
+            if tick in drum_events:
+                old=drum_events[tick]
+                win=min(old,ev,key=lambda e:(DRUM_PRIORITY.index(DRUM_KINDS[e[0]]),e[1]))
+                drum_collisions.append(dict(tick=tick,kept=DRUM_KINDS[win[0]],dropped=DRUM_KINDS[(ev if win==old else old)[0]]))
+                drum_events[tick]=win
+            else:drum_events[tick]=ev
+        if not drum_events:raise ScoreError(f'drum voice {drums} has no hits inside the song')
+        if len(drum_events)>MAX_DRUMS:raise ScoreError(f'{len(drum_events)} drum hits exceed {MAX_DRUMS}; simplify the drum part')
+        for k,_ in drum_events.values():by_kind[DRUM_KINDS[k]]+=1
+    version=5 if drum_events else 4
+    blob=struct.pack('<4sHHHH',b'RBG%d'%version,version,total,len(packed),len(chosen))
     blob+=struct.pack('<HBx24s',len(segments),DIFFICULTY_CODE[difficulty],title.encode('ascii'))
+    if drum_events:blob+=struct.pack('<HH',len(drum_events),0)
     blob+=b''.join(struct.pack('<4H3Bx',tick,*d,*a) for tick,d,a in packed)
     blob+=b''.join(struct.pack('<3H4B',*n) for n in chosen)
     blob+=b''.join(struct.pack('<LLHH',start,period,first,count) for first,start,period,count in segments)
+    blob+=b''.join(struct.pack('<HBB',t,k,lv) for t,(k,lv) in sorted(drum_events.items()))
     normalized=dict(schema='normalized-mml-v2',tempo_map=[dict(beat=rational(t),bpm=b) for t,b in tempo_map],
         duration_seconds=rational(duration),voices=[[dict(start=rational(n['start']),end=rational(n['end']),
             note=n['note'],level=n['volume']) for n in ns] for ns in voices])
     settings=dict(title=title,lead=lead,lead_policy=lead_policy,parts=parts,difficulty=difficulty,gap_ms=gap_ms,octave=octave,
         length=length,tempo=tempo,volume=volume,transpose=transpose,
         voice_transpose={str(k):v for k,v in sorted(voice_transpose.items())})
+    if drums is not None:settings.update(drums=drums)
     if chart_policy!='elapsed':
         settings.update(chart_policy=chart_policy,audible_late_window_ticks=3,
             minimum_same_lane_required_spacing_ticks=7 if difficulty in ('easy','normal') else 0,
             minimum_required_duration_ticks=4 if difficulty in ('easy','normal') else 1)
-    report=dict(schema='deterministic-rbg4-v4',title=title,
+    report=dict(schema='deterministic-rbg4-v4' if version==4 else 'deterministic-rbg5-v1',title=title,
         beat_grid=dict(segments=len(segments),beats=sum(c for *_,c in segments),units='16.16 BIOS ticks; integer quarter-note beats'),source_sha256=hashlib.sha256(text.encode('ascii')).hexdigest(),
         score_sha256=hashlib.sha256(blob).hexdigest(),settings=settings,
         lead_voice=lead_index+1,psg_voices=[i+1 for i in selected],
@@ -168,6 +220,11 @@ def convert(text,*,lead='auto',lead_policy='activity',parts=None,difficulty='nor
         lead_policy='required notes hit-owned; misses silent; uncharted notes automatically play on the elapsed clock; no source lead onsets dropped',
         lane_policy='(transposed MIDI pitch - 45) modulo 3',
         unsupported_policy='reject with location; no automatic repair or pitch clamping')
+    if drum_index is not None:
+        report.update(drums=dict(voice=drums,hits=len(drum_events),by_kind=by_kind,same_tick_collisions=drum_collisions,
+            mapping='General MIDI percussion keys -> kick, snare, closed/open hat, crash, low/high tom on the noise channel',
+            level='15 - quantized MML volume, added to each kit attenuation'))
+        report['dropped_voices']=[v for v in report['dropped_voices'] if v!=drums]
     return blob,stable_json(report),stable_json(normalized)
 
 def main():
@@ -180,6 +237,7 @@ def main():
     p.add_argument('--octave',type=int,default=4);p.add_argument('--length',type=int,default=4)
     p.add_argument('--tempo',type=int,default=120);p.add_argument('--volume',type=int,default=100)
     p.add_argument('--title',help=f'song title shown in game (default: source file name), up to {TITLE_MAX} chars')
+    p.add_argument('--drums',type=int,metavar='VOICE',help='1-based voice keyed as General MIDI percussion; plays on the noise channel (writes RBG5)')
     p.add_argument('--transpose',type=int,default=0);p.add_argument('--voice-transpose',action='append',default=[],metavar='VOICE:SEMITONES')
     args=p.parse_args();opts=vars(args).copy();source=opts.pop('source');out=opts.pop('output')
     try:

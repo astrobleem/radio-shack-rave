@@ -5,6 +5,8 @@ root=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--cc',default='gcc');args=p.parse_args()
 os.environ['RAVE_TEST_CC']=args.cc
 manifest=json.loads((root/'SOURCE-PROVENANCE.json').read_text())
+# Left-panel effect data must match its generator exactly.
+subprocess.run([sys.executable,'-B',str(root/'tools/gen_fx.py'),'--check'],check=True)
 for name,sha in manifest['pins'].items():
  assert hashlib.sha256((root/name).read_bytes()).hexdigest()==sha,name
 seen=set()

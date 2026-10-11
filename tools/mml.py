@@ -24,8 +24,8 @@ def rounded(value):
 
 def parse(text, octave=4, length=4, tempo=120, volume=100, transpose=0,
           max_voices=3, parts_only=False):
-    if len(text.encode('ascii', errors='replace')) > 8192:
-        raise ScoreError('source exceeds 8192 bytes')
+    if len(text.encode('ascii', errors='replace')) > 131072:
+        raise ScoreError('source exceeds 131072 bytes')
     if not text.isascii():
         raise ScoreError('ASCII source required')
     original = text
@@ -115,7 +115,7 @@ def parse(text, octave=4, length=4, tempo=120, volume=100, transpose=0,
                 else:
                     notes.append(dict(start=beat,end=beat+duration,note=note,volume=level))
                 beat+=duration
-                if len(notes)>4096: fail('voice exceeds 4096 notes/rests',start)
+                if len(notes)>16384: fail('voice exceeds 16384 notes/rests',start)
             else:
                 fail(f'unsupported syntax {part[start]!r}',start)
         if tie: fail('unfinished tie')
@@ -143,7 +143,7 @@ def parse(text, octave=4, length=4, tempo=120, volume=100, transpose=0,
         event_times={F(0),duration}
         for ns in normalized:
             for n in ns:event_times.update((n['start'],n['end']))
-        if len(event_times)>10000:raise ScoreError('more than 10000 normalized event times')
+        if len(event_times)>40000:raise ScoreError('more than 40000 normalized event times')
         return normalized,sorted(common.items()),duration
     events={F(0):[],duration:[]}
     attacks=[]

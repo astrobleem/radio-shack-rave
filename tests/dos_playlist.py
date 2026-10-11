@@ -27,12 +27,14 @@ def main():
         batch += [f'RSRAVE LONG.RBG /{mode} /SHOT','if errorlevel 1 goto failed',
                   f'copy RUNLOG.TXT EV\\{mode}.LOG > nul',f'copy AUDIO.TXT EV\\{mode}.TXT > nul',
                   f'copy FRAME.RAW EV\\{mode}.RAW > nul']
+    # Escape in the demo returns to the title; a second Escape there exits.
+    # DEMO waits past the first demo, which now returns to the splash.
     for folder,wait in [('EMPTY',3),('INVALID',3),('DEMO',12)]:
-        batch += ['cd '+folder,f'AUTOTYPE -w {wait} esc','..\\RSRAVE /DEMO',
+        batch += ['cd '+folder,f'ADDKEY p{wait * 1000} l50 escape p2000 l50 escape','..\\RSRAVE /DEMO',
                   f'copy RUNLOG.TXT ..\\EV\\{folder}.LOG > nul','cd ..']
-    # AUTOTYPE Start joins the previous worker. A comma-only zero-delay sequence
-    # touches no key events and lets the Escape break finish before shutdown.
-    batch += ['AUTOTYPE -w 0 -p 0 ,','echo DONE > EV\\DONE.TXT','goto end',
+    # ADDKEY schedules make/break events in the guest, without an AUTOTYPE
+    # host worker that can race the next process or shutdown.
+    batch += ['echo DONE > EV\\DONE.TXT','goto end',
               ':failed','cd \\','echo FAILED > EV\\DONE.TXT',':end']
     (work/'CHECK.BAT').write_text('\n'.join(batch)+'\n')
     if a.prepare_only:print('Prepared synthetic fixtures and native catalog; no emulator launched.');return
@@ -40,9 +42,23 @@ def main():
     conf.write_text('[sdl]\noutput=surface\n[dosbox]\nmachine=tandy\nmemsize=1\nquit warning=false\n'
                     '[cpu]\ncore=normal\ncputype=8086_prefetch\ncycles=fixed 12000\n'
                     '[mixer]\nnosound=true\n[autoexec]\nmount c '+str(work)+'\nc:\ncall CHECK.BAT\nexit\n')
-    run=subprocess.run(['dosbox-x','-conf',str(conf),'-nopromptfolder','-fastlaunch'],
-                       env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),
-                       capture_output=True,timeout=120)
+    try:
+        run=subprocess.run(['dosbox-x','-conf',str(conf),'-nopromptfolder','-fastlaunch'],
+                           env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),
+                           capture_output=True,timeout=120)
+    except subprocess.TimeoutExpired as exc:
+        ev=work/'EV'
+        (ev/'HOST-STDOUT.txt').write_bytes(exc.stdout or b'')
+        (ev/'HOST-STDERR.txt').write_bytes(exc.stderr or b'')
+        (ev/'TIMEOUT.txt').write_text('DOSBox-X exceeded the unchanged 120-second deadline.\n')
+        if a.keep:
+            shutil.copytree(ev,a.keep,dirs_exist_ok=True)
+            for name in ['CHECK.BAT','PLAYLIST.CNF']:
+                shutil.copy2(work/name,a.keep/name)
+            for folder in ['EMPTY','INVALID','DEMO']:
+                log=work/folder/'RUNLOG.TXT'
+                if log.exists():shutil.copy2(log,a.keep/(folder+'-PARTIAL.LOG'))
+        raise
     ev=work/'EV';(ev/'HOST-STDOUT.txt').write_bytes(run.stdout);(ev/'HOST-STDERR.txt').write_bytes(run.stderr)
     if a.keep:shutil.copytree(ev,a.keep,dirs_exist_ok=True)
     assert run.returncode==0,'DOSBox-X host failure: '+str(run.returncode)
@@ -66,7 +82,9 @@ def main():
         else:
             assert f['reason']=='1' and int(f['IRQ1'])>0 and int(f['makes'])>0
             if mode in ['EMPTY','INVALID']:assert f['title']=='ORIGINAL'
-            else:assert int(f['music_updates'])>=4 and f['hits']=='1' and f['lead_attacks']=='1'
+            else:
+                assert int(f['music_updates'])>=2 and f['hits']=='1' and f['lead_attacks']=='1'
+                assert f['demos']=='1' and int(f['splashes'])>=1,(f['demos'],f['splashes'])
     report={'result':'PASS original synthetic native playlist/word fixtures',
             'runtime_sha256':hashlib.sha256(a.runtime.read_bytes()).hexdigest(),'cases':logs,
             'physical':'Not tested; emulator cycles are not physical speed evidence'}

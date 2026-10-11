@@ -10,10 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: python -B tests/run_checks.py --cc gcc
+      - name: Verify packed effects against prior production images
+        run: |
+          mkdir -p "$RUNNER_TEMP/leftfx-base"
+          git archive 811fcf5bf7e76c604aa80d929538d6ab527a457a src | tar -x -C "$RUNNER_TEMP/leftfx-base"
+          python -B tests/leftfx_host.py --baseline "$RUNNER_TEMP/leftfx-base/src" --out build/leftfx --cc gcc
+      - name: Retain effect comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leftfx-host-${{ github.sha }}
+          path: build/leftfx
+          if-no-files-found: warn
   dos:
     # OpenWatcom build of the DOS game, then the native diagnostic cases in
     # headless DOSBox-X (machine=tandy). Emulation only: not hardware timing.
