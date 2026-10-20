@@ -1,5 +1,26 @@
 # Sound and runtime qualification
 
+## Five-indicator patch (v0.7.1)
+
+v0.7.0 displayed the four PSG channels but omitted the extra speaker voice. The patch keeps A/B/C/N in their original positions and adds a labeled SPK status LED. Green means the last successful PIT output enabled the gate; dark means it disabled the gate. It has no amplitude scale or decay. Prefetched frame data cannot change the light, and a failed output call retains the last confirmed state.
+
+The LED occupies x224-237, y93-95 in the 320x200 framebuffer, with its border and label outside the four PSG columns. One transition redraws one 14x3 cell. The shared limit remains four dirty cells per HUD update. Both lean and animated displays use this path.
+
+| Full-song 4.772728 MHz HX run | v0.7.0 | v0.7.1 |
+| --- | ---: | ---: |
+| Average draw | 130.6 ms | 131.9 ms |
+| Maximum draw | 176 ms | 175 ms |
+| Maximum soundtrack poll gap | 17 ms | 17 ms |
+| Maximum reported lateness | 15 ms | 15 ms |
+
+The average draw difference is about 1.0%. The new run hit all 469 required taps, delivered all 17,578 messages without errors, and matched all 10,626 prepared frames, 107,268 PSG bytes and 490 PIT programs. Register values/order match; captured waveform samples are not claimed identical.
+
+A fresh real-IRQ test at the 7.159092 MHz HX speed proxy exercised four animation toggles, retry, rests and exit. All 78 injected scancodes remained ordered, both soundtrack prefixes matched, and no frame preceded the measured origin bound. Average draw remained 70.0 ms (same as the prior mixed-mode run); maximum draw was 150 ms versus 154 ms. Keyboard/video/IRQ0/speaker cleanup passed. This is a CPU-speed proxy for EX, not an exact EX model.
+
+Focused host tests execute the actual live and prepared output paths with failed writes, silence, rewind and close. Pixel tests compare all 16 attenuation values of each PSG column and a mixed state against the accepted renderer. Only the reserved LED pixels change on a speaker transition; the LED settles in one update even with PSG redraw work pending. The four-cell limit holds. The publicly bundled demo and its five-indicator screenshot are original/CC0; private songs and captures are excluded.
+
+## Earlier baseline qualification
+
 The full-song baseline was played by the user on a real Tandy with their privately supplied Call Me MIDI. They reported that the sound was amazing and gameplay felt great. That is attributed listening/gameplay feedback, not a calibrated latency measurement. The private MIDI, chart, prepared states and captured audio are excluded from this publication.
 
 The restored intro/results sounds and lean VU additions use the same soundtrack parser, renderer, instruments and prepared data as that accepted baseline. They have completed local emulator and host qualification; a new physical test of these additions remains pending.

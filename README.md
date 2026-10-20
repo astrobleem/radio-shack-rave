@@ -4,7 +4,9 @@ Three lanes. Three keys. The sound hardware already in your Tandy.
 
 Radio Shack Rave is a 320Ã—200, 16-color rhythm game for Tandy 1000 EX-class PCs. Tap **Z / X / C** as notes cross the hit line, build a combo, and chase a better grade. It includes an attract loop, a shuffled song catalog, high scores, and a DJ Alfredo visualizer.
 
-![The original showcase composition in RAVE](evidence/V6/play.png)
+![Five sound indicators in the original CC0 prepared demo](docs/images/five-indicators-demo.png)
+
+**SPK** is the speaker on/off light; **A/B/C** are PSG tone levels and **N** is PSG noise. This is an emulator capture of the original CC0 demo.
 
 ## Your Tandy has an extra voice!
 
@@ -14,14 +16,15 @@ The speaker adds **one bass note at a time** and **31 lower note positions: D0â€
 
 - **Prepared expressive playback:** prepare the complete supported MIDI arrangement on a modern computer, then replay its PSG/PIT states on the 8088. Existing envelopes, vibrato, pitch bend, modulation, volume/expression and sustain come from the shared sound renderer. No imported instrument bank is bundled.
 - **Music and gameplay stay separate:** the full soundtrack keeps playing while an independently reduced RBG chart supplies the notes you tap. Missing a chart note does not cut the soundtrack.
-- **Lean by default:** a small, bounded VU display follows the last sound state actually emitted. Press **M** to toggle the optional decorative animation, or launch with `/ANIM`.
+- **Five sound indicators:** four PSG meters (**A/B/C/N**) plus a labeled **SPK** on/off light follow the last successfully emitted sound state. The fixed-volume speaker has no invented amplitude meter. Dirty drawing stays bounded in lean and animated modes.
+- **Lean by default:** press **M** to toggle the optional decorative animation, or launch with `/ANIM`.
 - **Presentation sounds restored:** the original intro, title and score-counting effects play around the soundtrack, with guarded silence between phases.
 
-The user played the accepted full-song baseline with **Call Me on a real Tandy**, reporting that the sound was amazing and the game felt great. The supplied commercial MIDI, its chart, prepared stream, screenshots and audio are **not distributed**. The restored effects and VU changes in this release have emulator qualification; a fresh physical test of those additions remains pending. See [qualification and measured costs](docs/QUALIFICATION.md).
+The user played the accepted full-song baseline with **Call Me on a real Tandy**, reporting that the sound was amazing and the game felt great. The supplied commercial MIDI, its chart, prepared stream, screenshots and audio are **not distributed**. Hardware feedback on v0.7.0 identified the missing speaker indicator. This patch adds it; the new indicator has emulator qualification and its fresh physical test remains pending. See [qualification and measured costs](docs/QUALIFICATION.md).
 
 ## Play
 
-Use the DOS runtime package from [Releases](https://github.com/astrobleem/radio-shack-rave/releases/tag/v0.7.0-prepared-audio), or the `runtime/` directory in the source tree. Run `PLAY` for **Circuit After Hours**, the original bundled composition. Run `DEMO` for the new original prepared-sound example.
+Use the DOS runtime package from [Releases](https://github.com/astrobleem/radio-shack-rave/releases/tag/v0.7.1-five-indicators), or the `runtime/` directory in the source tree. Run `PLAY` for **Circuit After Hours**, the original bundled composition. Run `DEMO` for the new original prepared-sound example.
 
 | Key | Action |
 | --- | --- |

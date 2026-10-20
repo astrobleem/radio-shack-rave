@@ -1,67 +1,150 @@
 {
-  "build": "v0.7.0-prepared-audio / MSC6 reference build25",
-  "runtime_sha256": "7db021b681bfb90dc9a981ef792f06d6064264fdf19f97adea0f1a2db14d5cd3",
-  "physical_baseline_feedback": "User reports excellent Call Me sound and gameplay on a real Tandy; commercial song assets excluded",
-  "physical_test_of_VU_and_presentation_repairs": false,
-  "emulated_runs": [
-    {
-      "cpu_hz": 4772728,
-      "EX_speed_proxy": false,
-      "frames": 1525,
-      "average_draw_ms": 130.6,
-      "baseline_average_draw_ms": 124.8,
-      "draw_time_increase_percent": 4.65,
-      "max_draw_ms": 176,
-      "max_poll_gap_ms": 17,
-      "max_lateness_ms": 15,
-      "hits": 469,
-      "misses": 0,
-      "source_messages": 17578,
-      "PSG_frames": 10626,
-      "PSG_bytes": 107268,
-      "PIT_programs": 490
-    },
-    {
-      "cpu_hz": 7159092,
-      "EX_speed_proxy": true,
-      "frames": 2704,
-      "average_draw_ms": 73.3,
-      "baseline_average_draw_ms": 68.9,
-      "draw_time_increase_percent": 6.39,
-      "max_draw_ms": 109,
-      "max_poll_gap_ms": 12,
-      "max_lateness_ms": 11,
-      "hits": 469,
-      "misses": 0,
-      "source_messages": 17578,
-      "PSG_frames": 10626,
-      "PSG_bytes": 107268,
-      "PIT_programs": 490
-    }
-  ],
-  "complete_soundtrack_output_unchanged": true,
-  "native_intro_attacks_verified": 31,
-  "manual_IRQ_restart_and_cleanup": "PASS",
-  "portable_host_suite": "79 tests pass; one GUI/display test skipped",
-  "meter_pixel_comparisons": 96,
-  "presentation_phase_checks": 16,
-  "limits": [
-    "7.16MHz is an HX CPU-speed proxy for EX, not exact EX model",
-    "Output sequence equality does not imply identical physical waveform or timing",
-    "Public CI compiles and independently qualifies OpenWatcom runtime; MSC6 executable remains the native-qualified reference"
-  ],
-  "public_original_prepared_demo": {
-    "result": "PASS",
-    "messages": 262,
-    "frames": 418,
-    "duration_ms": 15987,
-    "modes": [
-      "full playback",
-      "restart",
-      "complete score tally",
-      "intro",
-      "cleanup"
+  "build": "v0.7.1-five-indicators / MSC6 reference build27b",
+  "runtime_sha256": "e3e7640f1a9646045f61b3fb74415bc60103c4ec91551caf3f5a28365dc8f705",
+  "physical_test_of_fifth_indicator": false,
+  "indicator": {
+    "speaker": "binary last successful PIT gate write; no amplitude scale or decay",
+    "speaker_LED_rectangle": [
+      224,
+      93,
+      14,
+      3
     ],
-    "replay_checks": "three exact complete port traces and 14 malformed streams rejected"
+    "PSG_meters": "A/B/C/N unchanged; all 16 attenuation states and mixed state pixel-identical",
+    "maximum_dirty_cells_per_update": 4,
+    "gate_write_failure_cases": "PASS live/prepared on/off; silence; close; retries; prefetched state independence"
+  },
+  "complete_soundtrack_output_unchanged": true,
+  "stock_HX_run": {
+    "cpu_hz": 4772728,
+    "EX_speed_proxy": false,
+    "average_draw_ms": 131.9,
+    "baseline_v0_7_0_average_draw_ms": 130.6,
+    "increase_percent": 0.995,
+    "max_draw_ms": 175,
+    "max_poll_gap_ms": 17,
+    "max_lateness_ms": 15,
+    "hits": 469,
+    "misses": 0,
+    "source_messages": 17578,
+    "PSG_frames": 10626,
+    "PSG_bytes": 107268,
+    "PIT_programs": 490,
+    "cleanup": "PASS"
+  },
+  "real_keyboard_lean_and_animated": {
+    "cpu_hz": 7159092,
+    "EX_speed_proxy": true,
+    "ordered_scancodes": 78,
+    "restarts": 1,
+    "average_draw_ms": 70.0,
+    "baseline_average_draw_ms": 70.0,
+    "max_draw_ms": 150,
+    "baseline_max_draw_ms": 154,
+    "max_poll_gap_ms": 14,
+    "max_lateness_ms": 10,
+    "early_frames_beyond_origin_bound": 0,
+    "cleanup": "PASS"
+  },
+  "host_pixel_checks": {
+    "frames": 302,
+    "redraws": 926,
+    "source_checks": 20,
+    "all_PSG_attenuation_levels_vs_accepted_renderer": "PASS",
+    "SPK_settle_frames_with_PSG_dirty": 1
+  },
+  "prior_release_qualification": {
+    "build": "v0.7.0-prepared-audio / MSC6 reference build25",
+    "runtime_sha256": "7db021b681bfb90dc9a981ef792f06d6064264fdf19f97adea0f1a2db14d5cd3",
+    "physical_baseline_feedback": "User reports excellent Call Me sound and gameplay on a real Tandy; commercial song assets excluded",
+    "physical_test_of_VU_and_presentation_repairs": false,
+    "emulated_runs": [
+      {
+        "cpu_hz": 4772728,
+        "EX_speed_proxy": false,
+        "frames": 1525,
+        "average_draw_ms": 130.6,
+        "baseline_average_draw_ms": 124.8,
+        "draw_time_increase_percent": 4.65,
+        "max_draw_ms": 176,
+        "max_poll_gap_ms": 17,
+        "max_lateness_ms": 15,
+        "hits": 469,
+        "misses": 0,
+        "source_messages": 17578,
+        "PSG_frames": 10626,
+        "PSG_bytes": 107268,
+        "PIT_programs": 490
+      },
+      {
+        "cpu_hz": 7159092,
+        "EX_speed_proxy": true,
+        "frames": 2704,
+        "average_draw_ms": 73.3,
+        "baseline_average_draw_ms": 68.9,
+        "draw_time_increase_percent": 6.39,
+        "max_draw_ms": 109,
+        "max_poll_gap_ms": 12,
+        "max_lateness_ms": 11,
+        "hits": 469,
+        "misses": 0,
+        "source_messages": 17578,
+        "PSG_frames": 10626,
+        "PSG_bytes": 107268,
+        "PIT_programs": 490
+      }
+    ],
+    "complete_soundtrack_output_unchanged": true,
+    "native_intro_attacks_verified": 31,
+    "manual_IRQ_restart_and_cleanup": "PASS",
+    "portable_host_suite": "79 tests pass; one GUI/display test skipped",
+    "meter_pixel_comparisons": 96,
+    "presentation_phase_checks": 16,
+    "limits": [
+      "7.16MHz is an HX CPU-speed proxy for EX, not exact EX model",
+      "Output sequence equality does not imply identical physical waveform or timing",
+      "Public CI compiles and independently qualifies OpenWatcom runtime; MSC6 executable remains the native-qualified reference"
+    ],
+    "public_original_prepared_demo": {
+      "result": "PASS",
+      "messages": 262,
+      "frames": 418,
+      "duration_ms": 15987,
+      "modes": [
+        "full playback",
+        "restart",
+        "complete score tally",
+        "intro",
+        "cleanup"
+      ],
+      "replay_checks": "three exact complete port traces and 14 malformed streams rejected"
+    }
+  },
+  "limits": [
+    "Physical test of this indicator patch remains pending",
+    "7.16MHz is an HX CPU-speed proxy for EX, not exact EX hardware",
+    "Register sequence equality does not imply identical physical waveform or timing"
+  ],
+  "public_demo": "original CC0 MIDI/chart/stream retained unchanged; screenshot is an owned-emulator capture",
+  "public_original_prepared_demo": {
+    "source": "original CC0 music/DEMO.MID",
+    "RWS_unchanged_sha256": "386c150519e48d84257da35c15ca4c638105b5d600f1bbc7a131feecf0838b47",
+    "frames": 418,
+    "messages": 262,
+    "duration_ms": 15987,
+    "required_taps_hit": 32,
+    "misses": 0,
+    "MIDI_errors": 0,
+    "cleanup": "PASS",
+    "screenshot": "docs/images/five-indicators-demo.png",
+    "screenshot_sha256": "7a94f04ad5fa55b682d1a67023d476fabd44e26833bebb1c9d1dfb4973047b9d",
+    "screenshot_origin": "Owned HX emulator at7.159092MHz speed proxy, lawful original demo, unmodified framebuffer capture"
+  },
+  "portable_host_suite": {
+    "run": 81,
+    "passed": 80,
+    "skipped": 1,
+    "skip": "Tk/display unavailable",
+    "includes": "strict C89 game lint, actual live/prepared gate cache, all four PSG pixel states, SPK binary/dirty limit"
   }
 }

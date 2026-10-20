@@ -22,6 +22,8 @@ static int haveEvent;
 static unsigned oldPeriod[3],oldVolume[4],oldNoise;
 static unsigned oldSpeaker,oldSpeakerAttacks;
 static unsigned emittedPackedVolume=65535U;
+/* Last PIT gate command confirmed by the owner, independent of decoded frames. */
+static unsigned emittedPitGate;
 static void midi_volume_emitted(unsigned channel,unsigned attenuation)
 {
     unsigned shift=channel*4U;
@@ -75,7 +77,8 @@ static void midi_psg(void)
     if(synth.speakerDivisor!=oldSpeaker || synth.speakerAttacks!=oldSpeakerAttacks) {
         if(DosSoundPitDivisor(synth.speakerDivisor,
             (unsigned)(synth.speakerAttacks!=oldSpeakerAttacks))) errors++;
-        else {oldSpeaker=synth.speakerDivisor;oldSpeakerAttacks=synth.speakerAttacks;}
+        else {oldSpeaker=synth.speakerDivisor;oldSpeakerAttacks=synth.speakerAttacks;
+              emittedPitGate=synth.speakerDivisor!=0;}
     }
 }
 int _cdecl RaveMidiOpen(const char *path)
@@ -150,6 +153,7 @@ void _cdecl RaveMidiSilence(void)
         else midi_volume_emitted(i,15);
     }
     if(DosSoundPitDivisor(0,0))errors++;
+    else emittedPitGate=0;
     /* Invalidate every output cache so the next poll cannot mistake a prior
        sounding value for the now-silent hardware state. Preserve counters. */
     oldPeriod[0]=oldPeriod[1]=oldPeriod[2]=65535U;
@@ -194,6 +198,7 @@ void _cdecl RaveMidiClose(void)
     if(active) {
         if(emittedPackedVolume!=65535U)RaveMidiSilence();
         else if(DosSoundPitDivisor(0,0))errors++;
+        else emittedPitGate=0;
     }
     active=started=haveEvent=failed=0;oldSpeaker=0;
     if(midiFile){smf_close();_ffree(midiFile);midiFile=0;}
@@ -201,6 +206,7 @@ void _cdecl RaveMidiClose(void)
 }
 int _cdecl RaveMidiPrepared(void){return rvPrepared;}
 unsigned _cdecl RaveMidiPackedVolume(void){return active?emittedPackedVolume:65535U;}
+unsigned _cdecl RaveMidiPitGate(void){return emittedPitGate;}
 void _cdecl RaveMidiPollFine(unsigned long fine){if(active && rvPrepared)rv_poll(fine);}
 int _cdecl RaveMidiActive(void){return active;}
 unsigned _cdecl RaveMidiEvents(void){return openedEvents;}
