@@ -194,16 +194,18 @@ def main():
         assert before.read_bytes() == after.read_bytes(), before.name
         images.append(dict(file=before.name, sha256=digest(after)))
     assert len(images) == 56
-    # No rendering, clock, input, tone, drum, song or launcher edits elsewhere.
-    for name in ['BEAT.C', 'CLOCK.H', 'CORE.H', 'DOSSND.C', 'DOSSND.H',
-                 'GFX.H', 'PLAY.H', 'SHOW.H', 'SONGS.H', 'FX.H', 'WORDS.H']:
-        assert digest(roots[0][1]/name) == digest(ROOT/'src'/name), name
+    # The sound release intentionally changes drawing service points, clocks,
+    # input service and the output adapter. Preserve the independent judgment,
+    # catalog and original effect/word rules while comparing every FX image.
+    unchanged_rules=['CORE.H','SONGS.H','FX.H','WORDS.H']
+    for name in unchanged_rules:
+        assert (roots[0][1]/name).read_text() == (ROOT/'src'/name).read_text(), name
     result = dict(status='PASS', host_only=True, physical_speed_claim=False,
                   frame_palette_pairs_equal=56, images=images,
                   initial_work_counts=counts, timing=timing.stdout.strip(),
-                  unchanged_production_paths=True)
+                  unchanged_rule_sources=unchanged_rules)
     (out/'RESULTS.json').write_text(json.dumps(result, indent=2)+'\n')
-    print('PASS 56 complete bank images/palettes, timing gates, unchanged core')
+    print('PASS 56 complete bank images/palettes, timing gates, unchanged judgment/catalog/effect rules')
 
 
 if __name__ == '__main__':

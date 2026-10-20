@@ -25,7 +25,12 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--cycles',default='12000')
     p.add_argument('--keep',type=Path);a=p.parse_args()
     work=Path(tempfile.mkdtemp(prefix='rave-dos-'))
-    subprocess.run([str(root/'tools/build_ow.sh'),str(work/'RSRAVE.EXE')],check=True,capture_output=True)
+    compiled=subprocess.run([str(root/'tools/build_ow.sh'),str(work/'RSRAVE.EXE')],capture_output=True,text=True)
+    if a.keep:
+        a.keep.mkdir(parents=True,exist_ok=True)
+        (a.keep/'COMPILER.LOG').write_text(compiled.stdout+compiled.stderr)
+    if compiled.returncode:print(compiled.stdout+compiled.stderr,file=sys.stderr)
+    compiled.check_returncode()
     if a.keep:
         a.keep.mkdir(parents=True,exist_ok=True)
         shutil.copy(work/'RSRAVE.EXE',a.keep/'RSRAVE.EXE')
