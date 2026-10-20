@@ -1,0 +1,93 @@
+FXDATA.H up to date
+automatic/manual/early-owner/1000repeat/reset/catchup/reference/late-window: PASS
+PASS categories rotation reset timing counters bounds; cache=8658/9216
+test_all_short_easy_chart_rejects_explicitly (test_chart_policy.ChartPolicy) ... ok
+test_metrical_selection_is_deterministic_and_bounded (test_chart_policy.ChartPolicy) ... ok
+test_native_window_contract (test_chart_policy.ChartPolicy) ... ok
+test_short_tones_remain_automatic (test_chart_policy.ChartPolicy) ... ok
+test_ties_rests_and_tempo_preserve_every_audio_event (test_chart_policy.ChartPolicy) ... ok
+test_case_accidentals_dots_and_rests (test_converter.Converter) ... ok
+test_drum_voice_rules (test_converter.Converter) ... ok
+test_drum_voice_writes_rbg5 (test_converter.Converter) ... ok
+test_long_song_fits_far_tables (test_converter.Converter) ... ok
+test_original_golden_outputs (test_converter.Converter) ... ok
+test_resolution_and_storage_bounds (test_converter.Converter) ... ok
+test_tempo_conflict_rejected (test_converter.Converter) ... ok
+test_tie_merges_attack_and_interval (test_converter.Converter) ... ok
+test_title_rules (test_converter.Converter) ... ok
+test_transposition_is_explicit (test_converter.Converter) ... ok
+test_unsupported_syntax_location (test_converter.Converter) ... ok
+test_defaults_are_named_http_pairs (test_fetch_midi_list.FetchMidiList) ... ok
+test_page_html_resolves_to_direct_midi_link (test_fetch_midi_list.FetchMidiList) ... ok
+test_pairs_need_safe_name_and_http_url (test_fetch_midi_list.FetchMidiList) ... ok
+test_payload_must_be_midi_and_bounded (test_fetch_midi_list.FetchMidiList) ... ok
+test_unknown_only_name_and_bad_pair_exit_nonzero (test_fetch_midi_list.FetchMidiList) ... error: unknown name(s): nope (have: jump, megalovania, sandstorm, stayin)
+error: expected NAME=URL with NAME of letters, digits, - or _: 'bad'
+ok
+test_other_lanes_do_not_needlessly_thin (test_lane_windows.LaneWindows) ... ok
+test_same_lane_late_tap_cannot_steal_next_required (test_lane_windows.LaneWindows) ... ok
+test_seven_ticks_are_safe_and_deterministic (test_lane_windows.LaneWindows) ... ok
+test_loader_long_song_and_drums (test_legacy.Legacy) ... ok
+test_loader_rejects_malformed_all_versions (test_legacy.Legacy) ... ok
+test_rbg2_all_required_is_supported (test_legacy.Legacy) ... ok
+test_rbg3_and_rbg4_sound_and_score_identity (test_legacy.Legacy) ... ok
+test_rbg4_metadata_does_not_change_legacy_payload (test_legacy.Legacy) ... ok
+test_actual_native_noise_is_present_in_preview (test_midi_drums.MidiDrums) ... ok
+test_boundary_drum_is_retained_with_audited_tail (test_midi_drums.MidiDrums) ... ok
+test_delivered_binary_roundtrip_and_priority (test_midi_drums.MidiDrums) ... ok
+test_downloader_invalid_data_cannot_replace_good_file (test_midi_drums.MidiDrums) ... ok
+test_effective_tempo_limits_and_explicit_override (test_midi_drums.MidiDrums) ... ok
+test_exact_tempo_mapping_and_excerpt_origin (test_midi_drums.MidiDrums) ... ok
+test_explicit_tempo_override_preserves_measured_ledger (test_midi_drums.MidiDrums) ... ok
+test_integer_microsecond_encoding_of_255_bpm_remains_valid (test_midi_drums.MidiDrums) ... ok
+test_native_payload_mutations_rejected (test_midi_drums.MidiDrums) ... ok
+test_negative_drum_fields_and_unmapped_keys (test_midi_drums.MidiDrums) ... ok
+test_noninteger_tempo_preserved_in_actual_file (test_midi_drums.MidiDrums) ... ok
+test_original_tone_only_native_file_stays_exact (test_midi_drums.MidiDrums) ... ok
+test_out_of_range_tempo_before_excerpt_can_be_superseded (test_midi_drums.MidiDrums) ... ok
+test_reader_retains_channel10_onsets_and_velocities (test_midi_drums.MidiDrums) ... ok
+test_sidecar_extent_is_bounded_before_beat_generation (test_midi_drums.MidiDrums) ... ok
+test_sidecar_reimport_and_saved_drums_are_exact (test_midi_drums.MidiDrums) ... ok
+test_tone_selection_cannot_consume_percussion (test_midi_drums.MidiDrums) ... ok
+test_unsupported_meter_changes_are_explicit (test_midi_drums.MidiDrums) ... ok
+test_velocity_quantization_tie_break_and_source_preserved (test_midi_drums.MidiDrums) ... ok
+test_empty_bad_arguments_and_long_span (test_midi_to_mml.MidiToMml) ... ok
+test_excerpt_bars_and_report (test_midi_to_mml.MidiToMml) ... ok
+test_explicit_initial_meter_labels_allow_full_elapsed_chart (test_midi_to_mml.MidiToMml) ... ok
+test_explicit_shift_reported_and_never_clamped (test_midi_to_mml.MidiToMml) ... ok
+test_failed_check_preserves_existing_output_and_input_is_protected (test_midi_to_mml.MidiToMml) ... ok
+test_far_memory_limits_and_failed_check_does_not_write (test_midi_to_mml.MidiToMml) ... ok
+test_monophonic_reduction_top_and_bottom (test_midi_to_mml.MidiToMml) ... ok
+test_original_roundtrip_is_note_exact_and_chart_identical (test_midi_to_mml.MidiToMml) ... ok
+test_reader_rejects_non_midi (test_midi_to_mml.MidiToMml) ... ok
+test_source_limit_and_tempo_guards (test_midi_to_mml.MidiToMml) ... ok
+test_ties_and_dotted_lengths_round_trip (test_midi_to_mml.MidiToMml) ... ok
+test_truncated_files_and_invalid_headers_are_clean_errors (test_midi_to_mml.MidiToMml) ... ok
+test_hit_and_miss_fixture_uses_twenty_two_original_taps (test_playlist_fixtures.PlaylistFixtures) ... ok
+test_short_fallback_has_a_valid_tap_in_every_format (test_playlist_fixtures.PlaylistFixtures) ... ok
+test_arrange_wav_roll_and_save (test_rave_workbench.Workbench) ... ok
+test_form_validation (test_rave_workbench.Workbench) ... ok
+test_original_song_through_the_same_path (test_rave_workbench.Workbench) ... ok
+test_player_and_names (test_rave_workbench.Workbench) ... ok
+test_rows_info_density (test_rave_workbench.Workbench) ... ok
+test_suggest_is_lead_then_bass_and_ignores_drums (test_rave_workbench.Workbench) ... ok
+test_window_builds_and_arranges_when_tk_and_display_exist (test_rave_workbench.Workbench) ... skipped 'no Tk/display'
+test_actual_core_all_hits_equals_reference (test_retention.Retention) ... ok
+test_actual_core_misses_only_suppress_required (test_retention.Retention) ... ok
+test_beat_grid_follows_tempo_changes (test_retention.Retention) ... ok
+test_bounds_do_not_silently_drop_notes (test_retention.Retention) ... ok
+test_first_repeat_is_retained_on_easy (test_retention.Retention) ... ok
+test_general_music_is_not_thinned (test_retention.Retention) ... ok
+test_actual_demo_loop_and_prepare (test_songs.SongsTests) ... PASS production demo/end/Space/Escape-to-title/attract/fallback/mute/reset/title-names-next
+ok
+test_catalog_and_real_loader (test_songs.SongsTests) ... PASS catalog/loader
+PASS catalog/loader
+ok
+test_meter_rows_match_reference_over_full_tandy_frame (test_sound_ui.SoundUiTests) ... ok
+test_sfx_phase_gate_uses_current_production_predicate (test_sound_ui.SoundUiTests) ... ok
+
+----------------------------------------------------------------------
+Ran 79 tests in 8.795s
+
+OK (skipped=1)
+PASS: pinned source/runtime, include closure, strict C89 game lint, synthetic converter/retention tests, original 128-onset full lead and miss ownership

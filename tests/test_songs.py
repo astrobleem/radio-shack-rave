@@ -106,11 +106,17 @@ typedef struct { unsigned tick,lane,reserved; } Tap;
 static Tap chart[2];
 static unsigned duration=10,taps=0,live_from,judged[2],down[128],flash_kind[3];
 static int flash_until[3],key_lit[3],results_step;
-static int songs_mode,song_ready,demo_mode,tour_mode,auto_mode,reduced,exit_reason;
+static int songs_mode,song_ready,demo_mode,tour_mode,auto_mode,reduced,animations,exit_reason;
+static int gameplay_active;
+static int midiServiceValid;
 static unsigned restart_count,late_frames,frame_cost,worst_fine,worst_ticks,frames;
 static unsigned shot_mode,dump_done,lead_div;
 static unsigned long idle_since,fine_sum,clock_tick,origin;
 static unsigned resets,stops,cancels,loads,key_once,key_at;
+static void RaveMidiClose(void){}
+static void RaveMidiSilence(void){}
+static int RaveMidiActive(void){return 0;}
+static int soundtrack_owns_psg(void){return gameplay_active && RaveMidiActive();}
 static int load_result=1,next_result=1;
 static int owned,keyboard_owned,video_owned;
 static unsigned old_mode=3,restored_mode,releases,vectors;
@@ -132,7 +138,7 @@ static long song_fine(void){return (long)song_time()*256;}
 static int fine_tick(long n){return (int)(n/256);}
 static unsigned long clk_ticks(void){return clock_tick;}
 static unsigned long clk_fine(void){return clock_tick*256;}
-static void restart(void){resets++;origin=clock_tick;lead_div=0;}
+static void restart(void){resets++;origin=clock_tick;lead_div=0;gameplay_active=1;}
 static void lead_cancel(int n){(void)n;cancels++;lead_div=0;}
 static void sfx_stop(void){stops++;}
 static int load_score(const char *p){assert(!strcmp(p,"ORIGINAL.RBG"));loads++;return load_result;}
@@ -231,11 +237,17 @@ static FILE *host_fopen(const char *name,const char *mode) {
 
     def test_actual_demo_loop_and_prepare(self):
         src = (ROOT/'src/BEAT.C').read_text()
-        prepare = src[src.index('static int song_prepare('):src.index('static int autoplays(')]
+        prepare_start = src.index('static int song_prepare(')
+        autoplay_def = src.index('static int autoplays(void)\n{', prepare_start)
+        prepare = src[prepare_start:autoplay_def]
+        autoplay_start = src.index('static void autoplay_step(')
+        midi_service_def = src.index('static void service_chart(', autoplay_start)
+        autoplay = src[autoplay_start:midi_service_def]
+        stop = src[src.index('static void gameplay_stop('):src.index('static int selftest(')]
         game = src[src.index('static int game_run('):src.index('static int run_show(')]
         cleanup = src[src.index('static void cleanup('):src.index('static int title_char(')]
         with tempfile.TemporaryDirectory(prefix='rave-transitions-') as td:
-            exe = self.compile(GAME + cleanup + prepare + game + GAME_MAIN, Path(td), 'game')
+            exe = self.compile(GAME + autoplay + cleanup + prepare + stop + game + GAME_MAIN, Path(td), 'game')
             subprocess.run([str(exe)], cwd=td, check=True)
 
 

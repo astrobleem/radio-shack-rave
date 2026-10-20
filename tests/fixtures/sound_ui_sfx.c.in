@@ -1,0 +1,81 @@
+#include <stdio.h>
+#include <string.h>
+
+static int gameplay_active, midi_loaded;
+static unsigned long test_tick;
+static unsigned char writes[256];
+static unsigned write_count;
+
+static int RaveMidiActive(void) { return midi_loaded; }
+@ACTUAL_PREDICATE@
+static unsigned long clk_ticks(void) { return test_tick; }
+static unsigned long clk_fine(void) { return test_tick * 256UL; }
+static int DosSoundPsgByte(unsigned value)
+{
+    if(write_count >= sizeof(writes)) return 1;
+    writes[write_count++] = (unsigned char)value;
+    return 0;
+}
+
+#include "SFX.H"
+
+static unsigned checks, failures;
+static void check(int yes, const char *name)
+{
+    checks++;
+    if(!yes) { failures++; fprintf(stderr, "FAIL %s\n", name); }
+}
+static void clear_writes(void) { write_count=0; memset(writes,0,sizeof(writes)); }
+static int last_is(unsigned value)
+{ return write_count && writes[write_count-1] == value; }
+static int four_mutes(unsigned start)
+{
+    static const unsigned char mute[4] = {0x9f,0xbf,0xdf,0xff};
+    return write_count==start+4 && !memcmp(writes+start,mute,4);
+}
+
+int main(void)
+{
+    unsigned before;
+    midi_loaded=1; gameplay_active=0; test_tick=0;
+    check(!soundtrack_owns_psg(),"loaded intro is SFX-owned");
+    sfx_note(0,72,5,1,2);
+    check(write_count==3 && writes[0]==0x86 && writes[1]==13 &&
+          writes[2]==0x95,"intro exact tone and volume bytes");
+    test_tick=1; sfx_step();
+    check(write_count==4 && last_is(0x96),"intro decay emitted");
+    test_tick=2; sfx_step();
+    check(write_count==5 && last_is(0x9f),"intro final mute emitted");
+    before=write_count; sfx_stop();
+    check(four_mutes(before),"intro stop mutes all four channels");
+    clear_writes(); sfx_chord(84,79,76,4,2,20);
+    check(write_count==9,"intro chord emits three tone triplets");
+    sfx_stop();
+
+    clear_writes(); gameplay_active=1;
+    check(soundtrack_owns_psg(),"loaded gameplay is MIDI-owned");
+    sfx_note(1,76,3,1,4); sfx_note(3,NOISE_WHITE(1),4,1,4);
+    psg(0x90); test_tick=3; sfx_step(); sfx_stop();
+    check(write_count==0,"gameplay effect and direct PSG writes suppressed");
+    gameplay_active=0; test_tick=4; sfx_step();
+    check(write_count==0,"suppressed gameplay notes cannot decay into results");
+
+    clear_writes();
+    check(!soundtrack_owns_psg(),"loaded results are SFX-owned");
+    sfx_blip(79);
+    check(write_count==3 && writes[0]==0x8f && writes[1]==8 &&
+          writes[2]==0x95,"results exact blip bytes");
+    test_tick=5; sfx_step();
+    check(write_count==4 && last_is(0x96),"results blip decay emitted");
+    test_tick=6; sfx_step();
+    check(write_count==5 && last_is(0x9f),"results blip final mute emitted");
+    before=write_count; sfx_stop();
+    check(four_mutes(before),"results stop mutes all four channels");
+
+    clear_writes(); midi_loaded=0; gameplay_active=1;
+    check(!soundtrack_owns_psg(),"legacy gameplay retains SFX output");
+    sfx_blip(72);
+    check(write_count==3,"legacy blip emitted");
+    printf("checks=%u failures=%u\n",checks,failures);
+    return failures?1:0;
+}

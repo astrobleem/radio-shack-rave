@@ -10,6 +10,8 @@
 static unsigned char far *video=(unsigned char far *)0xb8000000UL;
 static unsigned row_ofs[SCR_H];
 static unsigned long vram_bytes;
+static void (*gfx_service_hook)(void);
+static void gfx_service(void){if(gfx_service_hook)gfx_service_hook();}
 static void gfx_init(void)
 {
     unsigned y;
@@ -144,6 +146,7 @@ static void text(int x,int y,const char *s,unsigned fg,unsigned bg)
             p[0]=lut[(bits>>3)&3];p[1]=lut[(bits>>1)&3];p[2]=lut[(bits&1)<<1];
         }
         vram_bytes+=21;
+        if((x/6&3)==3)gfx_service();
     }
 }
 static int text_width(const char *s,unsigned scale)
@@ -218,13 +221,18 @@ static int fancy_render(int x,int y,const char *s,const Style *st)
             _fmemcpy((void far *)(tbuf+r*tb_stride),video+row_ofs[y+r]+(x>>1),tb_stride);
         } else memset(tbuf+r*tb_stride,st->bg|(st->bg<<4),tb_stride);
     }
-    if(st->shadow!=NO_COLOR)for(i=0;i<n;i++)
+    if(st->shadow!=NO_COLOR)for(i=0;i<n;i++) {
         tb_glyph(1+(int)(i*6*sc),1,glyph(s[i]),0,0,st);
-    if(st->outline!=NO_COLOR)for(i=0;i<n;i++)
+        if((i&3)==3)gfx_service();
+    }
+    if(st->outline!=NO_COLOR)for(i=0;i<n;i++) {
         tb_glyph(1+(int)(i*6*sc),1,glyph(s[i]),1,0,st);
+        if((i&3)==3)gfx_service();
+    }
     for(i=0;i<n;i++) {
         c=st->letters?st->letters[i%st->nletters]:(st->rows?NO_COLOR:st->fg);
         tb_glyph(1+(int)(i*6*sc),1,glyph(s[i]),2,c,st);
+        if((i&3)==3)gfx_service();
     }
     return 1;
 }
@@ -249,6 +257,7 @@ static void fancy(int x,int y,const char *s,const Style *st)
         one[0]=s[w];
         if(st->letters){each.letters=st->letters+(w%st->nletters);each.nletters=1;}
         if(fancy_render(x+(int)(w*6*sc),y,one,&each))tb_blit(x+(int)(w*6*sc),y);
+        if((w&3)==3)gfx_service();
     }
 }
 /* Fast opaque double-size text: each glyph pixel is one whole byte, rows
@@ -270,6 +279,7 @@ static void text2x(int x,int y,const char *s,const unsigned char *rows,
             p[5]=q[5]=off;
         }
         vram_bytes+=84;
+        if((i&1)==1)gfx_service();
     }
 }
 static int center_x(const char *s,unsigned scale)

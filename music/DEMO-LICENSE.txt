@@ -1,0 +1,9 @@
+Circuit After Hours demo music is original material created for this project.
+
+The MIDI composition and matching MML source are dedicated to the public domain
+under CC0 1.0 Universal. To the extent that dedication is not effective, the
+authors waive all copyright and related rights to the fullest extent permitted
+by law. https://creativecommons.org/publicdomain/zero/1.0/
+
+The composition uses no third-party melody or recording. The chart is a gameplay
+arrangement of the melody; DEMO.MID also includes original chord and bass parts.

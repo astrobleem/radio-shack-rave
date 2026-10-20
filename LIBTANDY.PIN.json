@@ -1,0 +1,21 @@
+{
+  "source": "deps/libtandy",
+  "basis": "Public versioned source, byte-identical to the native-qualified expressive playback core",
+  "files": {
+    "sound/LTPBASE.H": "5b7d46083bf4b761bdd1bebbf238436e16a97f26ce85fccabc897e5c83ade4c6",
+    "sound/LTMATH.H": "6dae15406fcc117cbdb3075423db2cfce3f4fd5663472207867952a0f3f80a6c",
+    "sound/SMF.H": "0677533c63b458466145fa688dcd85dc7d12e5fc295ca5bacfec8677d2b0a30f",
+    "sound/SMF.C": "841980adf9a1e95c59fc51acaf0dd94a339776f946e63a062789e63243e2c0f8",
+    "sound/MIDISYN.H": "b920312440e2da974f7b9ab480bc3dbe0aed33bb52f8109d7efe937a0d0a76ac",
+    "sound/MIDISYN.C": "d8927fb136b2e36afcaeb0a948a87a479b5547c85c3e8d3fd3849c1a624e0d49",
+    "sound/MIDIMSG.H": "4eb8e78a83846bf625ebc0f84a0da9b3469c4c1a0fc578f185b8f8cd4147d43c",
+    "sound/INSTR.H": "ec0a1845a298fdd67d573dbd8cc623838d87b90d82c1727b4686c4ac175b2dd6",
+    "sound/INSTR.C": "cec224198dad374731f740d845cec8c25dbeae5f5cdfd22c74f8b0211320db72",
+    "sound/PERIODS.H": "5ae78d5167aae9ca223bcfb0855312f4d6669dc5f3c40ed398cab5c61f80df93",
+    "sound/PITNOTES.H": "2ec6e70221ad49ffb71baec4b1c6798241d22a850f1289cf8d6108b7a6740840",
+    "sound/CORE-MIT.TXT": "1c444f27b5b0d7397fa2e9c2812f89c2daab73c1f29fcbd91f0d8fc793e4cbd4"
+  },
+  "repository": "astrobleem/libtandy",
+  "revision": "b7fd74e1575aff204fb4a9e52a99ce309a4bda26",
+  "tag": "portable-midi-v1"
+}

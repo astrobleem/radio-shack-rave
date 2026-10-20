@@ -13,7 +13,11 @@
 #define DOS_SOUND_SPEECH (-21)
 int _cdecl DosSoundAcquire(unsigned resources);
 int _cdecl DosSoundPsgByte(unsigned value);
+/* Foreground complete state: 1..11 bytes, one lease check, no IRQ masking. */
+int _cdecl DosSoundPsgBytes(const unsigned char *bytes,unsigned count);
 int _cdecl DosSoundPitNote(unsigned note,unsigned attack);
+/* Exact prepared Timer-2 divider from the shared MIDI renderer; zero gates off. */
+int _cdecl DosSoundPitDivisor(unsigned divisor,unsigned attack);
 int _cdecl DosSoundPwmBegin(void);
 void _cdecl DosSoundPwmEnd(void);
 void _cdecl DosSoundRelease(void);

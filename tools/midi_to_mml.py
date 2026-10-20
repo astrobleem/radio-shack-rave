@@ -179,9 +179,9 @@ def read_smf(data):
 
 
 # ------------------------------------------------------------------ helpers
-def bar_ticks(ppq, sigs):
-    """Ticks per bar from the first time signature (constant meter only)."""
-    if len({(n, d) for _, n, d in sigs}) > 1:
+def bar_ticks(ppq, sigs, ignore_changes=False):
+    """Ticks per bar; optional first-meter labels for elapsed-time full charts."""
+    if not ignore_changes and len({(n, d) for _, n, d in sigs}) > 1:
         raise MidiError('meter changes inside the file; choose a constant-meter excerpt by tick or split it')
     n, d = (sigs[0][1], sigs[0][2]) if sigs else (4, 4)
     ticks = ppq * 4 * n
@@ -200,8 +200,8 @@ def polyphony(notes):
     return best
 
 
-def list_tracks(ppq, tracks, tempos, sigs):
-    bt = bar_ticks(ppq, sigs)
+def list_tracks(ppq, tracks, tempos, sigs, ignore_meter_changes=False):
+    bt = bar_ticks(ppq, sigs, ignore_meter_changes)
     print(f'ppq {ppq}, {bt // ppq if bt % ppq == 0 else bt / ppq:g} beats per bar, '
           f'tempo events {[(t, round(60e6 / u, 2)) for t, u in tempos[:6]]}')
     print('track.ch  program  notes  pitch    poly  bars(first-last)  name')
@@ -378,7 +378,8 @@ def expected_notes(runs, grid):
 
 # --------------------------------------------------------------------- main
 def arrange(smf, specs, *, from_bar=1, to_bar=0, grid=4, tempo=None, volumes=(), fold=False,
-            title='', difficulty='normal', check=False, source=None, chart_policy='elapsed'):
+            title='', difficulty='normal', check=False, source=None, chart_policy='elapsed',
+            ignore_meter_changes=False):
     """Reduce a parsed MIDI (read_smf result) to bounded Rave MML; return a result dict.
 
     Raises MidiError with an explanatory message for anything that cannot be represented.
@@ -392,7 +393,7 @@ def arrange(smf, specs, *, from_bar=1, to_bar=0, grid=4, tempo=None, volumes=(),
         raise MidiError('grid must be 1, 2, 4, 8 or 16 subdivisions per quarter note')
     if from_bar < 1:
         raise MidiError('from-bar must be at least 1')
-    bt = bar_ticks(ppq, sigs)
+    bt = bar_ticks(ppq, sigs, ignore_meter_changes)
     end_all = max((n[1] for tr in tracks for n in tr['notes']), default=0)
     if not end_all:
         raise MidiError('the file contains no notes')
@@ -538,11 +539,12 @@ def build(args):
     data = path.read_bytes()
     ppq, tracks, tempos, sigs = read_smf(data)
     if args.list:
-        list_tracks(ppq, tracks, tempos, sigs)
+        list_tracks(ppq, tracks, tempos, sigs, args.ignore_meter_changes)
         return 0
     result = arrange((ppq, tracks, tempos, sigs), args.voice, from_bar=args.from_bar, to_bar=args.to_bar,
                      grid=args.grid, tempo=args.tempo, volumes=args.volume, fold=args.fold,
                      title=args.title or Path(args.midi).stem, difficulty=args.difficulty, check=args.check,chart_policy=args.chart_policy,
+                     ignore_meter_changes=args.ignore_meter_changes,
                      source=dict(path=str(path.resolve()), bytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
                                  licensing='Not established; private use only'))
     if args.output:
@@ -569,6 +571,7 @@ def main(argv=None):
     p.add_argument('--fold', action='store_true', help='octave-fold single out-of-range notes (counted, never silent)')
     p.add_argument('--difficulty', choices=('easy', 'normal', 'hard', 'full'), default='normal')
     p.add_argument('--chart-policy',choices=('elapsed','metrical'),default='elapsed')
+    p.add_argument('--ignore-meter-changes',action='store_true',help='use the initial meter only for bar labels; preserve the full MIDI event timeline')
     p.add_argument('--title')
     p.add_argument('--check', action='store_true', help='also run the arrangement through import_score.convert')
     args = p.parse_args(argv)

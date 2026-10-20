@@ -40,7 +40,7 @@ static void frame_end(void)
 }
 static void calm_badge(void)
 {
-    text(266,2,reduced?"CALM ON ":"CALM OFF",reduced?11:8,0);
+    text(266,2,animations?"ANIM ON ":"ANIM OFF",animations?11:8,0);
 }
 /* Splash keys: Space plays, Escape exits, M toggles calm, anything else
    skips ahead to the title. 0 means keep going. */
@@ -51,7 +51,7 @@ static int show_keys(int other)
         idle_since=clk_ticks();
         if(k==1){exit_reason=1;return A_EXIT+100;}
         if(k==57)return A_PLAY+100;
-        if(k==50){reduced=!reduced;calm_badge();}
+        if(k==50){animations=!animations;reduced=!animations;calm_badge();}
         else if(other)return other+100;
     }
     return 0;
