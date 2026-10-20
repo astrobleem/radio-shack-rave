@@ -403,8 +403,8 @@ static unsigned meter_lvl[4],meter_shown[4],hud_seen;
 static int hud_score_tick;
 static int meter_tick;
 static unsigned midiMeterChannel,midiMeterSegment;
-static unsigned midiMeterWant[4],midiMeterShown[4],midiMeterDirty[4];
-static unsigned char midiMeterValid[4];
+static unsigned midiMeterWant[5],midiMeterShown[5],midiMeterDirty[5];
+static unsigned char midiMeterValid[5];
 /* Playfield and results never use logical 3, 4, 7 or 9: the left panel
    cycles those through the palette. Title and splash use the defaults. */
 static const unsigned char rows_cyan[7]={15,15,11,11,11,1,1};
@@ -486,8 +486,9 @@ static void word_draw(unsigned w)
 }
 static int milestone_until,milestone_kind;
 static unsigned milestone_last;
-/* MIDI VU follows only attenuation states successfully emitted to the PSG.
-   Scan at most 48 small flags and redraw at most four dirty segments per frame. */
+/* MIDI VU follows confirmed PSG attenuation and PIT gate writes. SPK is one
+   binary LED (no decay); A/B/C/N keep their original positions. Scan at most
+   60 small flags and redraw at most four cells per frame. */
 static void midi_meter_rows(unsigned offset0,unsigned offset1,unsigned offset2,
                             unsigned color0,unsigned color1,unsigned color2)
 {
@@ -520,10 +521,11 @@ static void midi_meter_rows(unsigned offset0,unsigned offset1,unsigned offset2,
 static void midi_meter_draw(unsigned channel,unsigned segment,unsigned lit)
 {
     unsigned y,x,offset0,offset1,offset2,color;
-    y=136U-segment*4U;x=(244U+channel*18U)>>1;
+    y=channel?136U-segment*4U:93U;
+    x=(channel?244U+(channel-1U)*18U:224U)>>1;
     offset0=row_ofs[y]+x;offset1=row_ofs[y+1]+x;offset2=row_ofs[y+2]+x;
     if(lit) {
-        color=segment<7?0xaaU:(segment<10?0xeeU:0xccU);
+        color=channel? (segment<7?0xaaU:(segment<10?0xeeU:0xccU)):0xaaU;
         midi_meter_rows(offset0,offset1,offset2,color,color,color);
     } else midi_meter_rows(offset0,offset1,offset2,0,0x88,0);
 }
@@ -539,22 +541,25 @@ static void midi_meter_frame(void)
         0x001,0x002,0x004,0x008,0x010,0x020,
         0x040,0x080,0x100,0x200,0x400,0x800};
     unsigned packed,l,scan,done,level,bit,lit;
+    midiMeterWant[0]=RaveMidiPitGate()?1U:0U;
+    if(midiMeterValid[0])midiMeterDirty[0]=midiMeterShown[0]^midiMeterWant[0];
+    else midiMeterDirty[0]|=midiMeterShown[0]^midiMeterWant[0];
     packed=RaveMidiPackedVolume();
     for(l=0;l<4;l++) {
         level=levelForAttenuation[packed&15U];
         packed>>=4;
         if(level>=meter_lvl[l])meter_lvl[l]=level;
         else if(meter_lvl[l])meter_lvl[l]--;
-        midiMeterWant[l]=levelMask[meter_lvl[l]];
-        if(midiMeterValid[l])midiMeterDirty[l]=midiMeterShown[l]^midiMeterWant[l];
-        else midiMeterDirty[l]|=midiMeterShown[l]^midiMeterWant[l];
+        midiMeterWant[l+1]=levelMask[meter_lvl[l]];
+        if(midiMeterValid[l+1])midiMeterDirty[l+1]=midiMeterShown[l+1]^midiMeterWant[l+1];
+        else midiMeterDirty[l+1]|=midiMeterShown[l+1]^midiMeterWant[l+1];
     }
     done=0;
-    for(scan=0;scan<48 && done<4;scan++) {
+    for(scan=0;scan<60 && done<4;scan++) {
         l=midiMeterChannel;
         if(!midiMeterDirty[l]) {
             midiMeterSegment=0;
-            if(++midiMeterChannel==4)midiMeterChannel=0;
+            if(++midiMeterChannel==5)midiMeterChannel=0;
             scan+=11;
             continue;
         }
@@ -570,7 +575,7 @@ static void midi_meter_frame(void)
         }
         if(++midiMeterSegment==12) {
             midiMeterSegment=0;
-            if(++midiMeterChannel==4)midiMeterChannel=0;
+            if(++midiMeterChannel==5)midiMeterChannel=0;
         }
     }
 }
@@ -663,9 +668,13 @@ static void hud_reset(void)
     milestone_until=-32767;milestone_last=0;meter_tick=-32767;
     for(l=0;l<4;l++) {
         meter_lvl[l]=0;meter_shown[l]=255;
+    }
+    for(l=0;l<5;l++) {
         midiMeterWant[l]=midiMeterShown[l]=0;
         midiMeterDirty[l]=0x0fffU;midiMeterValid[l]=0;
     }
+    /* scene_draw painted the speaker's OFF LED; only its one bit can change. */
+    midiMeterDirty[0]=0;midiMeterValid[0]=1;
     midiMeterChannel=midiMeterSegment=0;
     if(score==0)hud_score=1;
 }
@@ -708,7 +717,10 @@ static void scene_draw(void)
     }
     bevel(222,17,96,56,11,1,0);
     text(228,21,"SCORE",8,0);text(228,46,"COMBO",8,0);
-    text(222,80,"PSG",8,0);
+    text(222,80,"SPK",10,0);
+    span(222,91,18,8);span(222,97,18,8);
+    vline(222,92,5,8);vline(239,92,5,8);
+    midi_meter_draw(0,0,0);
     /* A B C tones and N, the noise channel that carries the drums. */
     for(l=0;l<4;l++){line[0]="ABCN"[l];line[1]=0;text(248+l*18,80,line,l<3?lane_fg[l]:15,0);}
     text(4,193,"ESC MENU  R RETRY  M ANIM",8,0);

@@ -16,5 +16,7 @@ unsigned long _cdecl RaveMidiDuration(void);
 int _cdecl RaveMidiPrepared(void);
 /* Packed nibbles are the last successfully emitted PSG attenuation. */
 unsigned _cdecl RaveMidiPackedVolume(void);
+/* Last successfully emitted PIT gate state: 0 off, 1 on. */
+unsigned _cdecl RaveMidiPitGate(void);
 void _cdecl RaveMidiPollFine(unsigned long fine);
 #endif

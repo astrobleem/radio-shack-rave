@@ -109,6 +109,7 @@ static void rv_poll(unsigned long fine)
         if(DosSoundPsgBytes(rvPsgBytes,n))errors++;
         else {rvNoiseMode=rvNoise;rvNoiseValid=1;emittedPackedVolume=rvVolume;}
         if(DosSoundPitDivisor(rvPit,0))errors++;
+        else emittedPitGate=rvPit!=0;
         delivered+=rvMessages;
         late=((fine-rvAt)*55UL+255UL)>>8;
         if(late>maxLateness)maxLateness=late>65535UL?65535U:(unsigned)late;

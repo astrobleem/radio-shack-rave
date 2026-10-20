@@ -87,7 +87,8 @@ int main(void)
   x=244U+l*18U;y=136U-s*4U;video=oldmem;
   if(lit) {c=s<7?10U:(s<10?14U:12U);fill((int)x,(int)y,14,3,c);}
   else {fill((int)x,(int)y,14,3,0);span((int)x,(int)(y+1),14,8);}
-  video=newmem;midi_meter_draw(l,s,lit);checks++;
+  /* Column0 is SPK; the unchanged PSG A/B/C/N columns are1..4. */
+  video=newmem;midi_meter_draw(l+1U,s,lit);checks++;
   for(i=0;i<32768;i++)if(oldmem[i]!=newmem[i]){bad++;break;}
  }
  printf("meter segment equivalence checks=%u failures=%u\n",checks,bad);
