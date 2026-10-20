@@ -63,7 +63,7 @@ The live `/MIDI YOUR.MID` route is also available, but parsing and synthesis cos
 This release versions its portable MIDI parser/synth in [libtandy](https://github.com/astrobleem/libtandy/tree/main/sound) and its prepared-playback producer in [libwintandy](https://github.com/astrobleem/libwintandy/tree/main/sound). `LIBTANDY.PIN.json` and `LIBWINTANDY-PREPARER.PIN.json` record the exact public commits and file hashes. The `deps/` sources can also be supplied with `LIBTANDY` and `LIBWINTANDY` environment variables.
 
 - **MSC6 reference:** configure your licensed compiler, run `python tools/fetch_sound_deps.py`, then `BUILD.BAT`.
-- **OpenWatcom 2:** set `WATCOM` and run `tools/build_ow.sh` on Linux/macOS/WSL.
+- **OpenWatcom 2:** set `WATCOM` and run `tools/build_ow.sh` on Linux/macOS/WSL. The combined game and MIDI objects use the medium code model to fit separate 16-bit code segments; the MSC6 reference keeps its qualified small model.
 - **Host checks:** `python tests/run_checks.py --cc gcc`.
 - **Prepared replay checks:** `python tools/check_rws.py --stream runtime/DEMO.RWS`.
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Cross-build the DOS game with OpenWatcom 2 on Linux/macOS/WSL.
 # MSC6 + BUILD.BAT remains the reference DOS toolchain; this produces the
-# same small-model 8088 program from the same source for previews and CI.
+# medium-code-model 8088 program from the same source for previews and CI.
 #   WATCOM=/opt/ow tools/build_ow.sh [output.exe]
 set -e
 : "${WATCOM:?set WATCOM to your OpenWatcom 2 install}"
@@ -17,7 +17,7 @@ libtandy=${LIBTANDY:-$root/deps/libtandy}
 out=${1:-$root/runtime/RSRAVE.EXE}
 tmp=$(mktemp -d)
 cp -r "$root/src/." "$tmp/"
-(cd "$tmp" && wcl -q -bt=dos -ms -0 -ox -w4 \
+(cd "$tmp" && wcl -q -bt=dos -mm -0 -ox -w4 \
   -i="$libtandy/include" -i="$libtandy/sound" -fe=RSRAVE.EXE \
   BEAT.C DOSSND.C RAVEMID.C "$libtandy/sound/SMF.C" \
   "$libtandy/sound/MIDISYN.C" "$libtandy/sound/INSTR.C")
