@@ -58,6 +58,15 @@ class MidiToMml(unittest.TestCase):
   code,out,err,text=self.run_tool(data,'--voice','1:top','--from-bar','2','--to-bar','4')
   self.assertEqual(code,0,err);self.assertIn('2 bars',out)
   v,_,duration=parse(text.strip(),parts_only=True);self.assertEqual(duration,F(4))
+ def test_explicit_initial_meter_labels_allow_full_elapsed_chart(self):
+  data=smf([(0,[(0,96,60),(96,192,62),(192,288,64)])])
+  parsed=m2m.read_smf(data);ppq,tracks,tempos,sigs=parsed
+  parsed=(ppq,tracks,tempos,sigs+[(96,3,4)])
+  with self.assertRaises(m2m.MidiError):
+   m2m.arrange(parsed,['1:top'])
+  result=m2m.arrange(parsed,['1:top'],ignore_meter_changes=True)
+  self.assertEqual(result['voices'][0]['stats']['source_attacks'],3)
+  self.assertEqual(result['from_bar'],1)
  def test_monophonic_reduction_top_and_bottom(self):
   chord=[(0,96,60),(0,96,64),(0,96,67),(96,192,62),(96,192,65)]
   data=smf([(0,chord)])

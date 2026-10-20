@@ -45,7 +45,7 @@ static const unsigned pitchHz[52]={
     554,587,622,659,698,740,784,831,880,932,988,1047,1109,
     1175,1245,1319,1397,1480,1568,1661,1760,1865,1976,2093
 };
-static unsigned soundOwner, currentNote;
+static unsigned soundOwner, currentNote, currentDivisor;
 static int pitAllowed, speech, psgTouched;
 static int Owns(unsigned owner)
 { return owner && owner==soundOwner; }
@@ -68,7 +68,7 @@ static int OwnerAcquire(unsigned version,unsigned owner,int pitRequired,
     if(soundOwner){RestoreIRQ(flags);return DOS_SOUND_BUSY;}
     /* Refuse an already active speaker before any output write. */
     if(ReadPort(0x61)&3){RestoreIRQ(flags);return DOS_SOUND_BUSY;}
-    soundOwner=owner;pitAllowed=pitEnabled;currentNote=0;
+    soundOwner=owner;pitAllowed=pitEnabled;currentNote=0;currentDivisor=0;
     speech=0;psgTouched=0;
     RestoreIRQ(flags);return 0;
 }
@@ -86,7 +86,7 @@ static int OwnerPitOff(unsigned owner)
     unsigned flags;
     if(!Owns(owner))return DOS_SOUND_OWNER;
     if(speech)return DOS_SOUND_SPEECH;
-    flags=SaveIRQ();pitStop();currentNote=0;
+    flags=SaveIRQ();pitStop();currentNote=0;currentDivisor=0;
     RestoreIRQ(flags);return 0;
 }
 static int OwnerPitNote(unsigned owner,unsigned note,int retrigger)
@@ -97,12 +97,29 @@ static int OwnerPitNote(unsigned owner,unsigned note,int retrigger)
     if(!pitAllowed)return DOS_SOUND_CAPABILITY;
     if(note<45 || note>96)return DOS_SOUND_PITCH;
     if(retrigger!=0 && retrigger!=1)return DOS_SOUND_CAPABILITY;
-    if(currentNote==note && !retrigger)return 0;
+    if(!currentDivisor && currentNote==note && !retrigger)return 0;
     flags=SaveIRQ();
     /* Changed pitch and explicit repeated attacks both off/rearm. */
-    pitStop();currentNote=0;
+    pitStop();currentNote=0;currentDivisor=0;
     result=pitSet(1,pitchHz[note-45],1);
-    if(!result)currentNote=note;
+    if(!result){currentNote=note;currentDivisor=0;}
+    RestoreIRQ(flags);return result;
+}
+static int OwnerPitDivisor(unsigned owner,unsigned divisor,int retrigger)
+{
+    unsigned flags;int result;
+    if(!Owns(owner))return DOS_SOUND_OWNER;
+    if(speech)return DOS_SOUND_SPEECH;
+    if(!pitAllowed)return DOS_SOUND_CAPABILITY;
+    if(divisor>65535U || (retrigger!=0 && retrigger!=1))return DOS_SOUND_CAPABILITY;
+    if(!divisor)return OwnerPitOff(owner);
+    if(divisor<152U)return DOS_SOUND_PITCH;
+    if(currentDivisor==divisor && !retrigger)return 0;
+    /* pitSetDivisor performs the single off/program/on sequence itself,
+       matching the shared Windows PIT lease without a duplicate gate write. */
+    flags=SaveIRQ();currentNote=0;currentDivisor=0;
+    result=pitSetDivisor(1,divisor,1);
+    if(!result){currentNote=0;currentDivisor=divisor;}
     RestoreIRQ(flags);return result;
 }
 static int OwnerSpeechBegin(unsigned owner)
@@ -110,7 +127,7 @@ static int OwnerSpeechBegin(unsigned owner)
     unsigned flags;
     if(!Owns(owner))return DOS_SOUND_OWNER;
     if(speech)return DOS_SOUND_SPEECH;
-    flags=SaveIRQ();pitStop();currentNote=0;
+    flags=SaveIRQ();pitStop();currentNote=0;currentDivisor=0;
     if(psgTouched)MutePsg();
     speech=1;
     RestoreIRQ(flags);return 0;
@@ -135,7 +152,7 @@ static int OwnerSpeechEnd(unsigned owner)
     flags=SaveIRQ();
     /* Also covers an owner's legacy PWM writes outside SpeechGate. */
     WritePort(0x61,ReadPort(0x61)&0xfc);
-    speech=0;currentNote=0;
+    speech=0;currentNote=0;currentDivisor=0;
     RestoreIRQ(flags);return 0;
 }
 static int OwnerRelease(unsigned owner)
@@ -143,7 +160,7 @@ static int OwnerRelease(unsigned owner)
     unsigned flags;
     if(!soundOwner)return 0;
     if(!Owns(owner))return DOS_SOUND_OWNER;
-    flags=SaveIRQ();pitStop();currentNote=0;
+    flags=SaveIRQ();pitStop();currentNote=0;currentDivisor=0;
     if(speech)WritePort(0x61,ReadPort(0x61)&0xfc);
     if(psgTouched)MutePsg();
     soundOwner=0;pitAllowed=0;speech=0;
@@ -167,6 +184,36 @@ int _cdecl DosSoundPsgByte(unsigned value)
     if(!(resourcesHeld & DS_PSG))return DOS_SOUND_CAPABILITY;
     return OwnerPsgByte(1,value);
 }
+int _cdecl DosSoundPsgBytes(const unsigned char *bytes,unsigned count)
+{
+    unsigned i;
+    if(!Owns(1))return DOS_SOUND_OWNER;
+    if(!(resourcesHeld & DS_PSG))return DOS_SOUND_CAPABILITY;
+    if(speech)return DOS_SOUND_SPEECH;
+    if(!bytes || !count || count>11)return DOS_SOUND_CAPABILITY;
+    /* The owner is cooperative foreground state; no IRQ mutates this lease.
+       Individual OUT instructions are atomic. Keep IF exactly as supplied,
+       as in the existing gaps between byte calls, instead of masking a whole
+       frame. The ordered bytes contain no parsing, callbacks or allocation. */
+    psgTouched=1;
+#if defined(_MSC_VER) && !defined(DOS_SOUND_TEST)
+    _asm push si
+    _asm mov si,bytes
+    _asm mov cx,count
+    _asm mov dx,0c0h
+    _asm {
+rv_psg_bytes:
+        mov al,[si]
+        out dx,al
+        inc si
+        loop rv_psg_bytes
+    }
+    _asm pop si
+#else
+    for(i=0;i<count;i++)WritePort(0xc0,bytes[i]);
+#endif
+    return 0;
+}
 int _cdecl DosSoundPitNote(unsigned note,unsigned attack)
 {
     if(!soundOwner)return DOS_SOUND_OWNER;
@@ -174,6 +221,13 @@ int _cdecl DosSoundPitNote(unsigned note,unsigned attack)
     if(attack>1 || (!note && attack))return DOS_SOUND_CAPABILITY;
     if(!note)return OwnerPitOff(1);
     return OwnerPitNote(1,note,attack);
+}
+int _cdecl DosSoundPitDivisor(unsigned divisor,unsigned attack)
+{
+    if(!soundOwner)return DOS_SOUND_OWNER;
+    if(!(resourcesHeld & DS_PIT))return DOS_SOUND_CAPABILITY;
+    if(attack>1)return DOS_SOUND_CAPABILITY;
+    return OwnerPitDivisor(1,divisor,attack);
 }
 int _cdecl DosSoundPwmBegin(void)
 {

@@ -94,8 +94,10 @@ static long fx_beat256(long nowf)
 }
 
 /* ---- sprites: restore from fxbuf, draw in window coordinates ---- */
+static unsigned fx_service_pixels;
 static void fx_px(int x,int y,int c)
 {
+    if(++fx_service_pixels==16){fx_service_pixels=0;audio_poll();}
     if(x<0 || x>=FX_W || y<0 || y>=FX_H)return;
     px(FX_X+x,FX_Y+y,c<0?fx_bg(x,y):(unsigned)c);
 }
@@ -133,6 +135,7 @@ static void cube_frame(long s256)
         x1=(x*ca+z*sa)/128;z1=(z*ca-x*sa)/128;
         y2=(y*cb-z1*sb)/128;z2=(y*sb+z1*cb)/128;
         sx[i]=FX_W/2+x1*92/(z2+250);sy[i]=FX_H/2+y2*92/(z2+250);sz[i]=z2;
+        if((i&1)==1)audio_poll();
     }
     cube_erase();
     for(i=0;i<12;i++) {
@@ -166,6 +169,7 @@ static void stars_frame(long nowf)
     unsigned i;int d,x,y,tx,ty,ca,sa;long age;
     stars_erase();
     for(i=0;i<FX_STARS;i++) {
+        if((i&3)==0)audio_poll();
         age=nowf-st_t0[i];
         d=age<0 || age>20000L?999:8+(int)((age*st_v[i])>>11);
         ca=fx_sin[(st_a[i]+64)&255];sa=fx_sin[st_a[i]];
@@ -228,6 +232,7 @@ static void rz_rows(int n)
             p[0]=p[1]=q[0]=q[1]=(unsigned char)t;p+=2;q+=2;
             u+=rz_cdu;v+=rz_cdv;
         }
+        audio_poll();
     }
 }
 /* Waving flag: 28 two-pixel columns hung on the pole, each shifted by a
@@ -243,7 +248,10 @@ static void flag_frame(long s256)
 {
     int off[FLAG_C+1],c,r,y,o,lo,hi,slope;unsigned ph=(unsigned)(s256>>1);
     unsigned char lit,dark,v;unsigned char far *p;
-    for(c=0;c<=FLAG_C;c++)off[c]=fx_sin[(unsigned)(c*14-ph)&255]*c*7/(127*FLAG_C);
+    for(c=0;c<=FLAG_C;c++) {
+        off[c]=fx_sin[(unsigned)(c*14-ph)&255]*c*7/(127*FLAG_C);
+        if((c&3)==3)audio_poll();
+    }
     for(c=0;c<FLAG_C;c++) {
         o=off[c];slope=off[c+1]-o;
         if(flag_on && o!=flag_off[c]) {
@@ -259,6 +267,7 @@ static void flag_frame(long s256)
             p=video+row_ofs[FX_Y+FLAG_Y+o+r]+FX_X/2+FLAG_X/2+c;*p=v;
         }
         flag_off[c]=(signed char)o;
+        if((c&3)==3)audio_poll();
     }
     flag_on=1;
 }
@@ -295,8 +304,10 @@ static void al_frame(long s256)
     int nx=AL_X,ny=AL_Y+bob,hx=nx,hy=ny-7,i,k,y;const Arm *a;
     if(key==al_shown)return;
     /* Erase by restoring his whole box from the packed scene. */
-    if(fxbuf && al_shown>=0)for(y=AL_R0;y<AL_BOOTH;y++)
+    if(fxbuf && al_shown>=0)for(y=AL_R0;y<AL_BOOTH;y++) {
         _fmemcpy(video+row_ofs[FX_Y+y]+FX_X/2+AL_C0,fxbuf+y*FX_BW+AL_C0,AL_C1-AL_C0);
+        if((y&3)==3)audio_poll();
+    }
     al_line(nx,ny,nx,AL_BOOTH,15);
     for(i=0;i<2;i++) {
         a=&al_pose[pose][i];
@@ -372,7 +383,10 @@ static void fx_frame(long nowf,unsigned core)
     if(reduced || no_fx) {
         /* Frozen: finish a wipe in one go and hold a still palette. */
         if(fx_wipe<FX_DONE) {
-            while(fx_wipe<FX_DONE)fx_wipe_row((unsigned)fx_scene);
+            while(fx_wipe<FX_DONE) {
+                fx_wipe_row((unsigned)fx_scene);
+                if((fx_wipe&3)==0)audio_poll();
+            }
             fx_pal((unsigned)fx_scene,0);
         }
         fx_still((unsigned)fx_scene);

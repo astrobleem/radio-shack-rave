@@ -10,7 +10,10 @@
 #include <string.h>
 #include <malloc.h>
 #include "DOSSND.H"
+#include "RAVEMID.H"
 static void lead_output(int now,unsigned divisor,unsigned attenuation);
+static void midi_service(void);
+static int soundtrack_owns_psg(void);
 #define RAVE_FAR_TABLES
 #include "FX.H"
 #include "CORE.H"
@@ -19,6 +22,7 @@ static void lead_output(int now,unsigned divisor,unsigned attenuation);
 #include "CLOCK.H"
 #include "SFX.H"
 #include "SONGS.H"
+#include "RVTIME.H"
 
 #define MAX_STATES 4096
 #define MAX_SEGS 64
@@ -44,7 +48,9 @@ static unsigned worst_fine, music_updates, restart_count, last_music_tick;
 static unsigned max_input_wait;
 static unsigned long fine_sum;
 static volatile unsigned irq_count,key_makes,key_breaks,key_repeats;
-static int reduced, owned, keyboard_owned, video_owned, no_fx, no_logo;
+static int reduced=1, owned, keyboard_owned, video_owned, no_fx, no_logo;
+static int animations; /* lean by default; M or /ANIM enables decoration */
+static int midiChartTick=-32767,drawing_abort;
 static int demo_mode, tour_mode;
 static int songs_mode, song_ready, exit_reason;
 static unsigned demo_runs, splash_runs;
@@ -55,6 +61,14 @@ static volatile unsigned qread, qwrite, overflow;
 static void (interrupt far *old_keyboard)(void);
 static int auto_mode, test_mode, dump_done, shot_mode;
 static unsigned long origin;
+static unsigned long midiFineLast,midiTimeMs,midiTimeRemainder;
+static int midiTimeValid;
+static int gameplay_active,midiServiceValid;
+static unsigned long midiServiceLastFine;
+static int soundtrack_owns_psg(void)
+{
+    return gameplay_active && RaveMidiActive();
+}
 #define MAX_AUDIO 1100
 typedef struct { int tick;unsigned divisor,attenuation; } AudioEvent;
 typedef struct { unsigned tick,d1,d2;unsigned char a1,a2; } BackEvent;
@@ -114,6 +128,25 @@ static int song_time(void)
 {
     return fine_tick(song_fine());
 }
+/* Convert 1/256 BIOS tick units (PIT0/65536) to elapsed milliseconds exactly.
+   Incremental rational accumulation avoids a 64-bit multiply in DOS. */
+static unsigned long midi_time_ms(unsigned long fine)
+{
+    unsigned long delta,part,numerator;
+    if(!midiTimeValid || fine<midiFineLast) {
+        midiFineLast=0;midiTimeMs=0;midiTimeRemainder=0;midiTimeValid=1;
+    }
+    delta=fine-midiFineLast;
+    while(delta) {
+        part=delta>16000UL?16000UL:delta;
+        numerator=part*256000UL+midiTimeRemainder;
+        {unsigned long whole=rave_time_div(numerator);
+         midiTimeMs+=whole;midiTimeRemainder=numerator-whole*1193182UL;}
+        delta-=part;
+    }
+    midiFineLast=fine;
+    return midiTimeMs;
+}
 static void key_event(unsigned scan)
 {
     unsigned code,next;
@@ -164,6 +197,9 @@ static void mode(unsigned m)
 static void cleanup(void)
 {
     if(owned)lead_cancel(song_time());
+    gameplay_active=0;
+    if(owned && RaveMidiActive())RaveMidiSilence();
+    RaveMidiClose();
     if(keyboard_owned){_dos_setvect(9,old_keyboard);keyboard_owned=0;}
     if(owned){DosSoundRelease();owned=0;}
     if(video_owned){mode(old_mode);video_owned=0;}
@@ -392,7 +428,7 @@ static int splash_input(void)
     while((k=key_take(0))!=0) {
         if(k==1)return -1;
         if(k==57)return 1;
-        if(k==50)reduced=!reduced;
+        if(k==50){animations=!animations;reduced=!animations;}
     }
     return 0;
 }
@@ -416,13 +452,84 @@ static int splash_bitmap(const char *name)
     if(ok && fgetc(f)!=EOF)ok=0;
     fclose(f);return ok?0:-2;
 }
+static int autoplays(void);
+/* Shared by the main loop and cooperative MIDI service points. It uses only
+   the current song time; chart decisions are never backdated. */
+static void autoplay_step(int now)
+{
+    unsigned i,l;int off;
+    if(!gameplay_active || !(autoplays() || demo_mode))return;
+    for(i=live_from;i<taps;i++) {
+        if((int)chart[i].tick>now+3)break;
+        off=auto_mode==9?2:0;
+        if(demo_mode)off=(i%13==6)?2:((i%17==9)?-2:0);
+        if(!chart[i].reserved && !judged[i] &&
+           (int)chart[i].tick<=now+off) {
+            l=chart[i].lane;hit(l,now);
+        }
+    }
+}
+/* Tick-based chart state cannot change on repeated visits to the same tick.
+   Real queued presses retain their IRQ timestamps and are handled even when
+   this call arrives between two drawing stages. No drawing occurs here. */
+static void service_chart(int now)
+{
+    unsigned key,ago;
+    if(now!=midiChartTick) {
+        lead_step(now);automatic_step(now);autoplay_step(now);
+        midiChartTick=now;
+    }
+    if(demo_mode || (auto_mode && auto_mode!=6))return;
+    while(qread!=qwrite) {
+        key=queue[qread];
+        if(key<44 || key>46) {
+            if(key==1 || key==19 || key==50)drawing_abort=1;
+            break;
+        }
+        key=key_take(&ago);
+        now=song_time();
+        hit(key-44,now-(int)ago);
+    }
+}
+/* MIDI parsing/synthesis is foreground work. Long drawing stages call this
+   after bounded batches. It never redraws UI; hit/FX changes are picked up
+   by the next ordinary frame. */
+static void midi_service(void)
+{
+    unsigned long fine,age;long f;int now;
+    if(!gameplay_active || !RaveMidiActive())return;
+    fine=clk_fine();
+    if(midiServiceValid && fine>=midiServiceLastFine &&
+       fine-midiServiceLastFine<(RaveMidiPrepared()?14UL:93UL))return;
+    midiServiceLastFine=fine;midiServiceValid=1;
+    age=fine-origin;
+    if(age>30000UL*256UL)age=30000UL*256UL;
+    f=(long)age-36L*256L;
+    if(f<0)return;
+    now=fine_tick(f);service_chart(now);
+    if(RaveMidiPrepared())RaveMidiPollFine((unsigned long)f);
+    else RaveMidiPoll(midi_time_ms((unsigned long)f));
+    /* A 1000-event catch-up can itself take long enough for input/automatic
+       chart events to become due. Sample the real clock again afterwards. */
+    f=song_fine();
+    if(f>=0) {
+        now=fine_tick(f);service_chart(now);
+    }
+}
 /* Audio stepping, also called between the playfield's drawing stages so a
    slow frame does not hold back lead, backing or drums for its whole
    length. Judgment is unaffected: it uses key timestamps. */
 static void audio_poll(void)
 {
-    long f=song_fine();int n=fine_tick(f);
-    lead_step(n);automatic_step(n);music_step(n);drums_step(f);
+    long f;int n;
+    if(!gameplay_active)return;
+    if(RaveMidiActive()) {
+        midi_service();
+        return;
+    }
+    f=song_fine();n=fine_tick(f);
+    lead_step(n);automatic_step(n);
+    music_step(n);drums_step(f);
 }
 #include "PLAY.H"
 #include "HISCORE.H"
@@ -431,6 +538,7 @@ static void audio_poll(void)
 static void restart(void)
 {
     unsigned k;
+    gameplay_active=0;midiServiceValid=0;midiChartTick=-32767;
     sfx_stop();
     for(k=0;k<3;k++){prev_div[k]=65535;prev_att[k]=65535;}
     next_state=0;last_music_tick=0;reset_game();
@@ -438,9 +546,19 @@ static void restart(void)
     scene_draw();
     audio_count=back_count=audio_overflow=0;backing_checksum=0;
     drums_reset();drum_count=drum_hits=0;drum_checksum=0;
+    RaveMidiRewind();
     origin=clk_fine();
+    midiTimeValid=0;
     fx_reset(song_fine());
     for(k=0;k<3;k++)key_lit[k]=0;
+    clk_sync();
+    origin=clk_fine();midiTimeValid=0;
+    gameplay_active=1;
+}
+static void gameplay_stop(void)
+{
+    if(owned && RaveMidiActive())RaveMidiSilence();
+    gameplay_active=0;midiServiceValid=0;
 }
 static int selftest(void)
 {
@@ -537,16 +655,18 @@ static int action_ready(int action)
     if(action==A_PLAY || action==A_DEMO || action==A_TITLE)return song_prepare();
     return 1;
 }
-static int autoplays(void){return auto_mode==1 || auto_mode==3 || auto_mode==7 || auto_mode==9 || auto_mode==16;}
+static int autoplays(void)
+{return auto_mode==1 || auto_mode==3 || auto_mode==7 || auto_mode==9 || auto_mode==16;}
 /* One play of the song. demo: the attract-mode autoplayer, any key leaves. */
 static int game_run(int demo)
 {
-    int now,key,last=-32767,playing=1,results_t=0,off;unsigned i,l,ago;
+    int now,key,last=-32767,playing=1,results_t=0;unsigned i,l,ago;
     long nowf;unsigned long before,cost;
     demo_mode=demo;song_ready=0;restart();
     for(;;) {
         nowf=song_fine();now=fine_tick(nowf);
-        lead_step(now);automatic_step(now);music_step(now);drums_step(nowf);
+        lead_step(now);automatic_step(now);
+        if(!RaveMidiActive()){music_step(now);drums_step(nowf);}
         if(auto_mode==5 && now!=last) {
             for(i=0;i<100;i++)key_event(44);
             if((now&7)==0)key_event(172);
@@ -556,45 +676,39 @@ static int game_run(int demo)
             idle_since=clk_ticks();
             if(!playing && hs_entry_key((unsigned)key))continue;
             if(demo) {
-                if(key==50){reduced=!reduced;continue;}
-                if(key==1)return A_TITLE;
-                if(key==57){song_ready=1;return A_PLAY;}
-                return A_TITLE;
+                if(key==50){animations=!animations;reduced=!animations;continue;}
+                if(key==1){gameplay_stop();return A_TITLE;}
+                if(key==57){song_ready=1;gameplay_stop();return A_PLAY;}
+                gameplay_stop();return A_TITLE;
             }
             if(key==1) {
                 exit_reason=1;
-                if(auto_mode)return A_EXIT;
-                return A_TITLE;
+                if(auto_mode){gameplay_stop();return A_EXIT;}
+                gameplay_stop();return A_TITLE;
             }
             if(key==19){restart_count++;restart();playing=1;last=-32767;now=song_time();nowf=song_fine();continue;}
-            if(key==50){reduced=!reduced;continue;}
-            if(key==57 && !playing)return A_TITLE;
+            if(key==50){animations=!animations;reduced=!animations;continue;}
+            if(key==57 && !playing){gameplay_stop();return A_TITLE;}
             if(playing && key>=44 && key<=46)hit(key-44,now-(int)ago);
         }
-        if(playing && (autoplays() || demo))for(i=live_from;i<taps;i++) {
-            if((int)chart[i].tick>now+3)break;
-            off=auto_mode==9?2:0;
-            if(demo)off=(i%13==6)?2:((i%17==9)?-2:0);
-            if(!chart[i].reserved && !judged[i] && (int)chart[i].tick<=now+off) {
-                l=chart[i].lane;hit(l,now);
-            }
-        }
+        if(playing)autoplay_step(now);
         if(auto_mode==3 && now>140 && !restart_count) {
             restart_count++;restart();last=-32767;continue;
         }
-        if(auto_mode==4 && now>60){exit_reason=1;return A_EXIT;}
-        if(auto_mode==7 && now>=60 && lead_div){exit_reason=1;return A_EXIT;}
+        if(auto_mode==4 && now>60){exit_reason=1;gameplay_stop();return A_EXIT;}
+        if(auto_mode==7 && now>=60 && lead_div){exit_reason=1;gameplay_stop();return A_EXIT;}
         expire(now);
-        for(l=0;l<3;l++)key_lit[l]=(unsigned char)(((!demo && !auto_mode && down[44+l]) ||
+        for(l=0;l<3;l++)key_lit[l]=(unsigned char)(((!demo && (!auto_mode || auto_mode==6) && down[44+l]) ||
             (flash_kind[l]==1 && now<flash_until[l]-1))?1:0);
         if(playing && now>(int)duration+WINDOW+2) {
+            gameplay_stop();
             playing=0;results_step=0;results_t=(int)clk_ticks();hs_begin(demo);
         }
         if(now!=last && last!=-32767 && now-last>1)late_frames++;
         before=clk_fine();
         if(playing)playfield_frame(nowf,now);
         else results_frame((int)clk_ticks()-results_t);
-        sfx_step();
+        if(!soundtrack_owns_psg())sfx_step();
         cost=clk_fine()-before;frame_cost=cost>65535UL?65535u:(unsigned)cost;
         if(playing && now>=0) {
             frames++;fine_sum+=cost;
@@ -605,11 +719,11 @@ static int game_run(int demo)
         if(auto_mode && shot_mode && !dump_done && now>=200) {
             dump_frame("FRAME.RAW");dump_done=1;
         }
-        if(auto_mode && auto_mode<10 && now>(int)duration+10)return A_EXIT;
+        if(auto_mode && auto_mode<10 && now>(int)duration+10){gameplay_stop();return A_EXIT;}
         if(auto_mode==16 && !playing && results_step>=9 && hs_state!=HS_ENTER &&
-           (int)clk_ticks()-results_t>54)return A_EXIT;
+           (int)clk_ticks()-results_t>54){gameplay_stop();return A_EXIT;}
         if(!playing && demo && (int)clk_ticks()-results_t>100)
-            return tour_mode?A_EXIT:A_SPLASH;
+            {gameplay_stop();return tour_mode?A_EXIT:A_SPLASH;}
         frame_end();
     }
 }
@@ -638,7 +752,8 @@ static int run_show(void)
 int main(int argc,char **argv)
 {
     union REGS r;int title_result=0;unsigned i;FILE *log;
-    const char *file="ORIGINAL.RBG";int explicit_file=0;
+    const char *file="ORIGINAL.RBG",*midi_path=0;int explicit_file=0;
+    gfx_service_hook=midi_service;
     for(i=1;i<(unsigned)argc;i++) {
         if(!strcmp(argv[i],"/AUTO"))auto_mode=1;
         else if(!strcmp(argv[i],"/MISS"))auto_mode=2;
@@ -652,7 +767,9 @@ int main(int argc,char **argv)
         else if(!strcmp(argv[i],"/SIMR")){test_mode=4;reference_mode=1;}
         else if(!strcmp(argv[i],"/REF")){auto_mode=8;reference_mode=1;}
         else if(!strcmp(argv[i],"/HESC"))auto_mode=7;
-        else if(!strcmp(argv[i],"/CALM"))reduced=1;
+        else if(!strcmp(argv[i],"/CALM")){animations=0;reduced=1;}
+        else if(!strcmp(argv[i],"/ANIM")){animations=1;reduced=0;}
+        else if(!strcmp(argv[i],"/LEAN")){animations=0;reduced=1;}
         else if(!strcmp(argv[i],"/FXOFF"))no_fx=1;
         else if(!strcmp(argv[i],"/EARLY"))auto_mode=9;
         else if(!strcmp(argv[i],"/SHOT"))shot_mode=1;
@@ -666,6 +783,10 @@ int main(int argc,char **argv)
         else if(!strcmp(argv[i],"/RENDER"))clk_virtual=1;
         else if(!strcmp(argv[i],"/NOLOGO"))no_logo=1;
         else if(!strcmp(argv[i],"/NOVSYNC"))vsync_on=0;
+        else if(!strcmp(argv[i],"/MIDI") || !strcmp(argv[i],"/STREAM")) {
+            if(i+1>=(unsigned)argc){puts("/MIDI or /STREAM requires a soundtrack file.");return 2;}
+            midi_path=argv[++i];
+        }
         else {file=argv[i];explicit_file=1;}
     }
     /* Keep scripted timing/QA and explicit-file launches exactly reproducible. */
@@ -680,19 +801,37 @@ int main(int argc,char **argv)
     }
     if(test_mode==1)return selftest();
     if(test_mode>=2)return simulate(test_mode==2);
+    if(midi_path && !RaveMidiOpen(midi_path)) {
+        puts("Invalid or unsupported soundtrack; no hardware changed.");return 2;
+    }
+    if(midi_path) {
+        unsigned long chartMs;
+        midiTimeValid=0;
+        chartMs=midi_time_ms((unsigned long)duration*256UL);
+        midiTimeValid=0;
+        if(RaveMidiDuration()>chartMs) {
+            RaveMidiClose();
+            puts("Soundtrack runs longer than this chart; no hardware changed.");return 2;
+        }
+    }
     hs_load();
     gfx_init();lanes_init();
     cache=(unsigned char far *)_fmalloc(CACHE_BYTES);cache_used=0;
     fx_init();rz_init();
     words_init();
     r.h.ah=15;int86(0x10,&r,&r);old_mode=r.h.al;
-    if(DosSoundAcquire(DS_PSG)) {
+    if(DosSoundAcquire(RaveMidiActive()?(DS_PSG|DS_PIT):DS_PSG)) {
+        RaveMidiClose();
         puts("Sound owner refused: requires exclusive plain Tandy DOS.");return 3;
     }
     owned=1;atexit(cleanup);key_install();
     if(clk_virtual){psg_log=fopen("PSG.LOG","w");pal_log=fopen("PAL.LOG","w");}
     mode(9);video_owned=1;
-    psg_mute_all();
+    if(RaveMidiActive()) {
+        unsigned k;
+        /* Clear latched PSG state once after ownership, before MIDI time zero. */
+        for(k=0;k<4;k++)DosSoundPsgByte(0x9f+(k<<5));
+    } else psg_mute_all();
     if(auto_mode>=10 && auto_mode<=13) {
         if(auto_mode==11)key_event(57);
         if(auto_mode==12)key_event(1);
@@ -741,6 +880,10 @@ int main(int argc,char **argv)
         fprintf(log,"state_cursor=%u/%u final_tick=%u/%u music_updates=%u queue_overflow=%u\n",
             next_state,states,last_music_tick,duration,music_updates,overflow);
         fprintf(log,"drums=%u drum_hits=%u drum_checksum=%lu\n",ndrums,drum_hits,drum_checksum);
+        if(RaveMidiEvents())fprintf(log,"midi_events=%u midi_delivered=%u midi_errors=%u midi_duration_ms=%lu midi_ended=%d midi_max_poll_gap_ms=%u midi_max_lateness_ms=%u\n",
+            RaveMidiEvents(),RaveMidiDelivered(),RaveMidiErrors(),RaveMidiDuration(),
+            RaveMidiEnded(),RaveMidiMaxPollGap(),RaveMidiMaxLateness());
+        if(RaveMidiEvents())fprintf(log,"midi_legacy_backing_drums_sfx=suppressed\n");
         fprintf(log,"hiscore_state=%d hiscore_rank=%d hiscore_initials=%s hiscore_songs=%u\n",
             hs_state,hs_rank,hs_ini[0]?hs_ini:"-",hs_count);
         fprintf(log,"far_tables state_table=%u/%u note_table=%u/%u drum_table=%u/%u segs=%u keyboard=%u; PIT0 unchanged\n",

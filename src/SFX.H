@@ -6,6 +6,9 @@
 static FILE *psg_log;
 static void psg(unsigned value)
 {
+    /* Loaded music owns the PSG only during gameplay, leaving the existing
+       intro/menu/results effects available before and after its timeline. */
+    if(soundtrack_owns_psg())return;
     DosSoundPsgByte(value);
     if(psg_log)fprintf(psg_log,"%lu %u\n",clk_fine(),value);
 }

@@ -35,6 +35,7 @@ static const unsigned char lane_fg[3]={10,13,14};
 static const unsigned char lane_dk[3]={2,5,6};
 static unsigned char rows_shown[3][LANE_ROWS],rows_want[3][LANE_ROWS];
 static unsigned char bg_row[LANE_ROWS];
+static unsigned lane_row_offset[3][LANE_ROWS];
 static unsigned char gem_val[3][GEM_H][GEM_B];
 static unsigned char dead_val[GEM_H][GEM_B];
 static signed char part_x[BURST_FRAMES][PARTS],part_y[BURST_FRAMES][PARTS];
@@ -82,8 +83,10 @@ static void sprite_draw(const Sprite *sp,int x,int y)
 {
     unsigned r;
     x&=~1;
-    for(r=0;r<sp->h;r++)
+    for(r=0;r<sp->h;r++) {
         _fmemcpy(video+row_ofs[y+r]+(x>>1),cache+sp->off+r*sp->stride,sp->stride);
+        if((r&7)==7 && gameplay_active && RaveMidiActive())midi_service();
+    }
     vram_bytes+=(unsigned long)sp->h*sp->stride;
 }
 static void set_nib(unsigned char *row,unsigned x,unsigned c)
@@ -111,6 +114,7 @@ static void lanes_init(void)
         {8,2},{7,4},{6,6},{4,7},{2,8},{0,8},{-2,8},{-4,7},{-6,6},{-7,4},{-8,2},{1,5}};
     for(r=0;r<LANE_ROWS;r++) {
         y=LANE_TOP+r;
+        for(l=0;l<3;l++)lane_row_offset[l][r]=row_ofs[y]+((lane_x[l]+2)>>1);
         if(y>=HIT_Y-2 && y<=HIT_Y+2)bg_row[r]=bg_band(y,0,0);
         else if(y>HIT_Y+2)bg_row[r]=(y&1)?0x10:0x01;
         else {
@@ -153,6 +157,66 @@ static unsigned part_color(unsigned l,unsigned f)
 /* One lane row. Gem rows are fixed 12-byte images with a background byte
    either side; plain rows are a single repeated byte; only burst rows are
    composed pixel by pixel. */
+static void lane_fill_fast(unsigned dstOffset,unsigned value)
+{
+#if defined(_MSC_VER)
+    _asm push es
+    _asm push di
+    _asm mov ax,0b800h
+    _asm mov es,ax
+    _asm mov di,dstOffset
+    _asm mov ax,value
+    _asm mov ah,al
+    _asm mov cx,7
+    _asm rep stosw
+    _asm pop di
+    _asm pop es
+#else
+    _fmemset(video+dstOffset,(int)value,LANE_IW);
+#endif
+}
+static void lane_gem_fast(unsigned dstOffset,const unsigned char *source,unsigned edge)
+{
+#if defined(_MSC_VER)
+    _asm push es
+    _asm push di
+    _asm push si
+    _asm mov ax,0b800h
+    _asm mov es,ax
+    _asm mov di,dstOffset
+    _asm mov si,source
+    _asm mov ax,edge
+    _asm stosb
+    _asm mov cx,6
+    _asm rep movsw
+    _asm stosb
+    _asm pop si
+    _asm pop di
+    _asm pop es
+#else
+    unsigned char far *v=video+dstOffset;
+    v[0]=v[LANE_IW-1]=(unsigned char)edge;
+    _fmemcpy(v+1,(void far *)source,GEM_B);
+#endif
+}
+/* Lean rows use the same byte images and colors, with precomputed video
+   offsets and bounded word transfers. IF is never changed. */
+static void lane_row_lean(unsigned l,unsigned r,unsigned code)
+{
+    unsigned k,base,offset=lane_row_offset[l][r];
+    const unsigned char *source;
+    rows_written++;
+    if(code>=RC_GEM && code<RC_DEAD+GEM_H) {
+        k=code>=RC_DEAD?code-RC_DEAD:code-RC_GEM;
+        source=code>=RC_DEAD?dead_val[k]:gem_val[l][k];
+        lane_gem_fast(offset,source,bg_row[r]);return;
+    }
+    base=(code&RC_PRESS)?bg_band((int)(LANE_TOP+r),l,1):bg_row[r];
+    code&=0x7f;
+    if(code==RC_BEAT)base=0x80;
+    else if(code==RC_BAR)base=0x88;
+    lane_fill_fast(offset,base);
+}
 static void lane_row(unsigned l,unsigned r,unsigned code)
 {
     unsigned char rb[LANE_IW];unsigned y=LANE_TOP+r,k,f,i,base;int d;
@@ -194,6 +258,7 @@ static unsigned char key_lit[3];
 static unsigned char st_row[2][3][STAMPS],st_len[2][3][STAMPS],st_n[2][3];
 static unsigned st_cur;
 static int lanes_full;
+static unsigned laneServiceRows;
 static void stamp(unsigned l,int r,int n)
 {
     unsigned k=st_n[st_cur][l];
@@ -207,11 +272,24 @@ static void stamp(unsigned l,int r,int n)
 static void lanes_diff(unsigned l,unsigned r,unsigned n)
 {
     unsigned char *w=rows_want[l]+r,*s=rows_shown[l]+r;
-    for(;n;n--,r++,w++,s++)if(*w!=*s){lane_row(l,r,*w);*s=*w;}
+    for(;n;n--,r++,w++,s++) {
+        if(*w!=*s){
+            if(!animations)lane_row_lean(l,r,*w);else lane_row(l,r,*w);
+            *s=*w;
+        }
+        if(++laneServiceRows==8) {
+            laneServiceRows=0;
+            if(gameplay_active && RaveMidiActive())midi_service();
+            if(drawing_abort)return;
+        }
+    }
 }
 static void lanes_frame(long nowf,int now)
 {
     unsigned l,r,i,f,k,p,now_px,lim;int y,top;BeatCur c;unsigned code;
+    laneServiceRows=0;
+    if(gameplay_active && RaveMidiActive())midi_service();
+    if(drawing_abort){lanes_full=1;return;}
     st_cur^=1;
     for(l=0;l<3;l++){memset(rows_want[l],RC_BG,LANE_ROWS);st_n[st_cur][l]=0;}
     /* Beat grid. */
@@ -227,9 +305,10 @@ static void lanes_frame(long nowf,int now)
     for(l=0;l<3;l++) {
         if(flash_until[l]!=burst_seen[l]) {
             burst_seen[l]=flash_until[l];
-            if(flash_kind[l]==1 && !no_fx)burst_t0[l]=now;
+            if(flash_kind[l]==1 && animations && !no_fx && !RaveMidiActive())burst_t0[l]=now;
         }
-        if(burst_t0[l]!=-32767 && now>=burst_t0[l] && now-burst_t0[l]<BURST_FRAMES)
+        if(!animations || RaveMidiActive())burst_t0[l]=-32767;
+        if(!RaveMidiActive() && burst_t0[l]!=-32767 && now>=burst_t0[l] && now-burst_t0[l]<BURST_FRAMES)
         {
             for(f=(unsigned)(now-burst_t0[l]),r=0;r<16;r++)
                 rows_want[l][BURST_TOP+r-LANE_TOP]=(unsigned char)(RC_BURST+f*16+r);
@@ -241,6 +320,8 @@ static void lanes_frame(long nowf,int now)
             if(code==RC_BG || code>=RC_BURST)rows_want[l][y-LANE_TOP]=(unsigned char)(code|RC_PRESS);
         }
     }
+    if(gameplay_active && RaveMidiActive())midi_service();
+    if(drawing_abort){lanes_full=1;return;}
     /* Gems, in 16-bit pixel space: a note sits tick*SCROLL pixels down the
        song, the screen at now_px (modular arithmetic keeps the ready period
        right). Hit and automatic notes are not drawn; misses fall on grey. */
@@ -262,10 +343,14 @@ static void lanes_frame(long nowf,int now)
                 rows_want[l][y-LANE_TOP]=(unsigned char)((judged[i]==2?RC_DEAD:RC_GEM)+(r==3?2:r));
         }
     }
+    if(gameplay_active && RaveMidiActive())midi_service();
+    if(drawing_abort){lanes_full=1;return;}
     for(l=0;l<3;l++) {
-        if(lanes_full){lanes_diff(l,0,LANE_ROWS);continue;}
-        for(p=0;p<2;p++)for(k=0;k<st_n[st_cur^p][l];k++)
+        if(lanes_full){lanes_diff(l,0,LANE_ROWS);if(drawing_abort)return;continue;}
+        for(p=0;p<2;p++)for(k=0;k<st_n[st_cur^p][l];k++) {
             lanes_diff(l,st_row[st_cur^p][l][k],st_len[st_cur^p][l][k]);
+            if(drawing_abort){lanes_full=1;return;}
+        }
     }
     lanes_full=0;
 }
@@ -317,6 +402,9 @@ static unsigned hud_combo,hud_best,hud_hits,hud_misses,hud_acc,hud_prog,hud_word
 static unsigned meter_lvl[4],meter_shown[4],hud_seen;
 static int hud_score_tick;
 static int meter_tick;
+static unsigned midiMeterChannel,midiMeterSegment;
+static unsigned midiMeterWant[4],midiMeterShown[4],midiMeterDirty[4];
+static unsigned char midiMeterValid[4];
 /* Playfield and results never use logical 3, 4, 7 or 9: the left panel
    cycles those through the palette. Title and splash use the defaults. */
 static const unsigned char rows_cyan[7]={15,15,11,11,11,1,1};
@@ -392,51 +480,153 @@ static void word_draw(unsigned w)
     }
     variant=kind==1?1:fx_word;
     n=strlen(word_text[variant]);
-    if(pop || !word_spr[variant].h)
+    if((pop && !RaveMidiActive()) || !word_spr[variant].h)
         text2x(269-(int)n*6,146,word_text[variant],pop?rows_white7:(kind==1?rows_green:kind==2?rows_cyan:rows_red),0,0,0);
     else sprite_draw(&word_spr[variant],269-(int)word_spr[variant].w/2,144);
 }
 static int milestone_until,milestone_kind;
 static unsigned milestone_last;
+/* MIDI VU follows only attenuation states successfully emitted to the PSG.
+   Scan at most 48 small flags and redraw at most four dirty segments per frame. */
+static void midi_meter_rows(unsigned offset0,unsigned offset1,unsigned offset2,
+                            unsigned color0,unsigned color1,unsigned color2)
+{
+#if defined(_MSC_VER)
+    _asm push es
+    _asm push di
+    _asm mov ax,0b800h
+    _asm mov es,ax
+    _asm mov di,offset0
+    _asm mov al,color0
+    _asm mov cx,7
+    _asm rep stosb
+    _asm mov di,offset1
+    _asm mov al,color1
+    _asm mov cx,7
+    _asm rep stosb
+    _asm mov di,offset2
+    _asm mov al,color2
+    _asm mov cx,7
+    _asm rep stosb
+    _asm pop di
+    _asm pop es
+#else
+    unsigned char far *p;
+    p=video+offset0;p[0]=p[1]=p[2]=p[3]=p[4]=p[5]=p[6]=(unsigned char)color0;
+    p=video+offset1;p[0]=p[1]=p[2]=p[3]=p[4]=p[5]=p[6]=(unsigned char)color1;
+    p=video+offset2;p[0]=p[1]=p[2]=p[3]=p[4]=p[5]=p[6]=(unsigned char)color2;
+#endif
+}
+static void midi_meter_draw(unsigned channel,unsigned segment,unsigned lit)
+{
+    unsigned y,x,offset0,offset1,offset2,color;
+    y=136U-segment*4U;x=(244U+channel*18U)>>1;
+    offset0=row_ofs[y]+x;offset1=row_ofs[y+1]+x;offset2=row_ofs[y+2]+x;
+    if(lit) {
+        color=segment<7?0xaaU:(segment<10?0xeeU:0xccU);
+        midi_meter_rows(offset0,offset1,offset2,color,color,color);
+    } else midi_meter_rows(offset0,offset1,offset2,0,0x88,0);
+}
+/* Update at most four dirty 12-bit meter cells per frame. */
+static void midi_meter_frame(void)
+{
+    static const unsigned char levelForAttenuation[16]={
+        12,12,11,10,9,8,8,7,6,5,4,4,3,2,1,0};
+    static const unsigned levelMask[13]={
+        0x000,0x001,0x003,0x007,0x00f,0x01f,0x03f,
+        0x07f,0x0ff,0x1ff,0x3ff,0x7ff,0xfff};
+    static const unsigned cellBit[12]={
+        0x001,0x002,0x004,0x008,0x010,0x020,
+        0x040,0x080,0x100,0x200,0x400,0x800};
+    unsigned packed,l,scan,done,level,bit,lit;
+    packed=RaveMidiPackedVolume();
+    for(l=0;l<4;l++) {
+        level=levelForAttenuation[packed&15U];
+        packed>>=4;
+        if(level>=meter_lvl[l])meter_lvl[l]=level;
+        else if(meter_lvl[l])meter_lvl[l]--;
+        midiMeterWant[l]=levelMask[meter_lvl[l]];
+        if(midiMeterValid[l])midiMeterDirty[l]=midiMeterShown[l]^midiMeterWant[l];
+        else midiMeterDirty[l]|=midiMeterShown[l]^midiMeterWant[l];
+    }
+    done=0;
+    for(scan=0;scan<48 && done<4;scan++) {
+        l=midiMeterChannel;
+        if(!midiMeterDirty[l]) {
+            midiMeterSegment=0;
+            if(++midiMeterChannel==4)midiMeterChannel=0;
+            scan+=11;
+            continue;
+        }
+        bit=cellBit[midiMeterSegment];
+        if(midiMeterDirty[l]&bit) {
+            lit=(midiMeterWant[l]&bit)!=0;
+            midi_meter_draw(l,midiMeterSegment,lit);
+            if(lit)midiMeterShown[l]|=bit;else midiMeterShown[l]&=~bit;
+            midiMeterDirty[l]&=~bit;
+            if(!midiMeterDirty[l])midiMeterValid[l]=1;
+            done++;
+            if(gameplay_active && RaveMidiActive())midi_service();
+        }
+        if(++midiMeterSegment==12) {
+            midiMeterSegment=0;
+            if(++midiMeterChannel==4)midiMeterChannel=0;
+        }
+    }
+}
 /* At most two HUD items redraw per frame after the judgment word, so a hit
    never lands every counter in the same frame; the rest follow next frame. */
 static void hud_frame(int now)
 {
     char buf[20];unsigned v,l,lvl,s,w,token;int budget=2;
-    if(now<milestone_until)w=(unsigned)milestone_kind*2+(now<milestone_until-12);
-    else if(now<fx_until)w=fx_kind*2+(now<fx_start+2);
+    if(animations) {
+        if(now<milestone_until)w=(unsigned)milestone_kind*2+(now<milestone_until-12);
+        else if(now<fx_until)w=fx_kind*2+(now<fx_start+2);
+        else w=0;
+    } else if(now<fx_until)w=fx_kind*2;
     else w=0;
     token=w;
     if(w && (w>>1)<4)token|=fx_word<<8;
     if(token!=hud_word){hud_word=token;word_draw(w);}
+    if(gameplay_active && RaveMidiActive())midi_service();
     if(hud_combo!=combo) {
         hud_combo=combo;fmt_u(buf,combo,0,' ');budget--;
         fill(260,41,56,14,0);
-        text2x(314-(int)strlen(buf)*12,42,buf,combo>=50?rows_gold7:rows_combo7,0,0,0);
+        if(animations)
+            text2x(314-(int)strlen(buf)*12,42,buf,combo>=50?rows_gold7:rows_combo7,0,0,0);
+        else
+            text(288-(int)strlen(buf)*3,45,buf,combo>=50?14:15,0);
         if(combo && combo%25==0 && combo!=milestone_last) {
             milestone_last=combo;milestone_until=now+14;milestone_kind=4+combo/25;
         }
         if(!combo)milestone_last=0;
     }
+    if(gameplay_active && RaveMidiActive())midi_service();
     if(hud_score!=score && now!=hud_score_tick && budget>0) {
         hud_score_tick=now;budget--;
         if(score<hud_score)hud_score=score;
+        else if(!animations || RaveMidiActive())hud_score=score;
         else hud_score+=(score-hud_score+1)/2;
         fmt_u(buf,hud_score,7,'0');text(228,31,buf,15,0);
     }
+    if(gameplay_active && RaveMidiActive())midi_service();
     if(!demo_mode) {
         if(fx_seen!=hud_seen && budget>0) {
             hud_seen=fx_seen;v=accuracy10();
             if(v!=hud_acc){hud_acc=v;budget--;fmt_acc(buf,v);fill(4,160,98,14,0);
-                text2x(4,160,buf,rows_acc7,0,0,0);}
+                if(!animations || RaveMidiActive())text(4,164,buf,15,0);
+                else text2x(4,160,buf,rows_acc7,0,0,0);}
         }
     } else if(hud_demo!=(unsigned)((now>>4)&1)+1) {
         hud_demo=(unsigned)((now>>4)&1)+1;
         text(6,172,"PRESS SPACE",hud_demo==1?15:8,0);
         text(6,181,"TO PLAY",hud_demo==1?15:8,0);
     }
+    if(gameplay_active && RaveMidiActive())midi_service();
     if(budget>0 && hud_hits!=hits){hud_hits=hits;budget--;label_num(buf,"HIT  ",hits,9);text(228,168,buf,10,0);}
+    if(gameplay_active && RaveMidiActive())midi_service();
     if(budget>0 && hud_misses!=misses){hud_misses=misses;budget--;label_num(buf,"MISS ",misses,9);text(228,178,buf,12,0);}
+    if(gameplay_active && RaveMidiActive())midi_service();
     if(budget>0 && hud_best!=best){hud_best=best;budget--;label_num(buf,"BEST ",best,9);text(228,61,buf,8,0);}
     /* Song progress and meters are stepped once per tick. */
     if(now==meter_tick)return;
@@ -449,6 +639,7 @@ static void hud_frame(int now)
         hud_prog=v;
     }
     if(no_fx)return;
+    if(RaveMidiActive()){midi_meter_frame();return;}
     for(l=0;l<4;l++) {
         if(!l)lvl=lead_div?15-lead_att:0;
         else if(l==3)lvl=drum_kind!=255?15-drum_att:0;
@@ -470,7 +661,12 @@ static void hud_reset(void)
     hud_score=1;hud_combo=65535;hud_best=hud_hits=hud_misses=65535;
     hud_acc=65535;hud_prog=0;hud_seen=65535;hud_word=65535;hud_demo=0;
     milestone_until=-32767;milestone_last=0;meter_tick=-32767;
-    for(l=0;l<4;l++){meter_lvl[l]=0;meter_shown[l]=255;}
+    for(l=0;l<4;l++) {
+        meter_lvl[l]=0;meter_shown[l]=255;
+        midiMeterWant[l]=midiMeterShown[l]=0;
+        midiMeterDirty[l]=0x0fffU;midiMeterValid[l]=0;
+    }
+    midiMeterChannel=midiMeterSegment=0;
     if(score==0)hud_score=1;
 }
 static const char *diff_name(void)
@@ -515,17 +711,20 @@ static void scene_draw(void)
     text(222,80,"PSG",8,0);
     /* A B C tones and N, the noise channel that carries the drums. */
     for(l=0;l<4;l++){line[0]="ABCN"[l];line[1]=0;text(248+l*18,80,line,l<3?lane_fg[l]:15,0);}
-    text(4,193,"ESC MENU  R RETRY  M CALM",8,0);
+    text(4,193,"ESC MENU  R RETRY  M ANIM",8,0);
     hud_reset();
 }
 static unsigned long prof[4];
 static void playfield_frame(long nowf,int now)
 {
     unsigned long t0=clk_fine(),t1,start=t0;
+    drawing_abort=0;
     lanes_frame(nowf,now);audio_poll();t1=clk_fine();prof[0]+=t1-t0;t0=t1;
+    if(drawing_abort)return;
     caps_frame();t1=clk_fine();prof[1]+=t1-t0;t0=t1;
     hud_frame(now);audio_poll();t1=clk_fine();prof[2]+=t1-t0;t0=t1;
-    fx_frame(nowf,(unsigned)(t1-start>65535UL?65535UL:t1-start));
+    if(drawing_abort)return;
+    if(animations)fx_frame(nowf,(unsigned)(t1-start>65535UL?65535UL:t1-start));
     prof[3]+=clk_fine()-t0;
 }
 

@@ -23,3 +23,7 @@ runtime/SPLASH.RAW
 *.wav
 midi-local/
 SONGS/
+PRIVATE/
+
+deps/
+build/

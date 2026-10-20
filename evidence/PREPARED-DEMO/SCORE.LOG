@@ -1,0 +1,16 @@
+mode=16 reason=0 restore_video=1 restore_keyboard=1
+score=3728 hits=32 misses=0 best=32 ghosts=0 restart=0 silent_hits=0
+lead_attacks=64 lead_releases=64 audio_events=128 overflow=0 backing_checksum=0
+required=32 total_lead=64 automatic=32 reference=0 auto_skipped=0
+frames=668 skipped_intervals=0 worst_draw_ticks=0 worst_draw_ms=0 avg_draw_ms10=0 vram_bytes=142233
+judgments=32 awesome=32 nice=0 missed=0 title=CIRCUIT segments=1 difficulty=1
+input_wait_ticks=0 IRQ1=0 makes=4 breaks=4 repeats=0 pit_mode=3
+state_cursor=0/2 final_tick=0/328 music_updates=0 queue_overflow=0
+drums=0 drum_hits=0 drum_checksum=0
+midi_events=262 midi_delivered=262 midi_errors=0 midi_duration_ms=15987 midi_ended=1 midi_max_poll_gap_ms=28 midi_max_lateness_ms=28
+midi_legacy_backing_drums_sfx=suppressed
+hiscore_state=2 hiscore_rank=1 hiscore_initials=CLD hiscore_songs=1
+far_tables state_table=2/2 note_table=64/64 drum_table=0/1 segs=768 keyboard=224; PIT0 unchanged
+prof lanes=0 caps=0 hud=0 fx=0 rows=33451
+fx_scenes_seen=0001 fx_switches=0 fx_lite=0 fx_buffer=1 demos=0 splashes=0
+cleanup_owned=0 keyboard_owned=0 video_owned=0 speaker_low=0

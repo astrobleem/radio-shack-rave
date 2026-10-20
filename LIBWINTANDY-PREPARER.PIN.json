@@ -1,0 +1,22 @@
+{
+  "source": "deps/libwintandy",
+  "basis": "Public versioned source, byte-identical to the native-qualified expressive playback core",
+  "files": {
+    "sound/MIDICLK.C": "7cbfa7d1d7018d6f35db1773e159ebbb2ee2b5bf9da5aa189aec63e385373eda",
+    "sound/MDAPI.H": "a2afc9d6280bda498f4d92e3cb972add5f54a5f7dc7d270d237467d2bd6e7588",
+    "sound/LWMOD.H": "9bdd906cd03fe48914cd72a92d3386861f93f25f0520d31f1e98e60979a60231",
+    "sound/TCBURST.H": "7249a5885cfde8afe0c3c405ac129d92ee3b654a65923f49ceff8f295bb57776",
+    "sound/TCXBASS.H": "70a17e7341fe5352ebaeaab194f3afd39bd9052b8ef9e808c3b02b23c4b6f6dc",
+    "sound/TCNOISE.H": "63597e8e3021931c5270dc954e61000e38f681f29847154451b4d149110693e3",
+    "sound/TIMECLK.H": "478d911587645d6d2acb2965dc7b78e8b6e3b67373e8a8a4933395398ff9d193",
+    "sound/PITLINK.H": "b6a9d41c5765b1b166caf0ff1aa7d83edfd2662a7b8f46d802bf08367b5cb452",
+    "sound/TIMECLK.C": "d1c710bb4b712734f88fd88162d95da4a0ac63820c3e24113c55d0d6f2c1befe",
+    "sound/DRIVER/PITLEASE.H": "053a4ec974cf4be6f3da860bc51e46ae3b6e24e75dd7d68885ef76599e0601b5",
+    "sound/DRIVER/PITLINK.H": "b6a9d41c5765b1b166caf0ff1aa7d83edfd2662a7b8f46d802bf08367b5cb452",
+    "sound/CORE-MIT.TXT": "1c444f27b5b0d7397fa2e9c2812f89c2daab73c1f29fcbd91f0d8fc793e4cbd4",
+    "sound/DRIVER/LICENSE": "230184f60bae2feaf244f10a8bac053c8ff33a183bcc365b4d8b876d2b7f4809"
+  },
+  "repository": "astrobleem/libwintandy",
+  "revision": "e6caa7b966854d981762a0fda2a4d06eb8f5c402",
+  "tag": "prepared-producer-v1"
+}

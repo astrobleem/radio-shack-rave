@@ -26,3 +26,16 @@ static int pitSet(unsigned version,unsigned hz,unsigned level)
     pitActive=1;
     return 0;
 }
+/* Prepared MIDI renderer path: keep exact divider while retaining the same
+   session lease, active-speaker refusal, gate sequence and cleanup owner. */
+static int pitSetDivisor(unsigned version,unsigned divisor,unsigned level)
+{
+    unsigned bits;
+    if(version!=1 || level>1)return -16;
+    if(!level || !divisor){pitStop();return 0;}
+    if(divisor<152 || divisor>65535U)return -13;
+    bits=PitRead();
+    if(!pitActive && (bits&3))return -3;
+    PitGate(bits&0xfc);PitProgram(divisor);PitGate(PitRead()|3);
+    pitActive=1;return 0;
+}

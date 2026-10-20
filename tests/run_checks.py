@@ -9,14 +9,20 @@ manifest=json.loads((root/'SOURCE-PROVENANCE.json').read_text())
 subprocess.run([sys.executable,'-B',str(root/'tools/gen_fx.py'),'--check'],check=True)
 for name,sha in manifest['pins'].items():
  assert hashlib.sha256((root/name).read_bytes()).hexdigest()==sha,name
+shared=Path(os.environ.get('LIBTANDY',root/'deps/libtandy'))
+shared_pin=json.loads((root/'LIBTANDY.PIN.json').read_text())
+for name,sha in shared_pin['files'].items():
+ assert hashlib.sha256((shared/name).read_bytes()).hexdigest()==sha,'LIBTANDY '+name
 seen=set()
 def closure(path):
  if path in seen:return
  seen.add(path)
  for inc in re.findall(r'^\s*#include\s*"([^"\n]+)"',path.read_text(),re.M):
   target=path.parent/inc.replace('\\','/')
-  assert target.is_file(),f'missing include {target}'
-  closure(target)
+  if target.is_file():closure(target)
+  else:
+   candidates=[shared/'sound'/inc,shared/'include'/inc]
+   assert any(p.is_file() for p in candidates),f'missing include {target}'
 for f in (root/'src').glob('*.C'):closure(f)
 with tempfile.TemporaryDirectory(prefix='rave-host-') as tmp:
  sys.path.insert(0,str(root/'tests'))
