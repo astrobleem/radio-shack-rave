@@ -22,6 +22,11 @@ The speaker adds **one bass note at a time** and **31 lower note positions: D0â€
 
 The user played the accepted full-song baseline with **Call Me on a real Tandy**, reporting that the sound was amazing and the game felt great. The supplied commercial MIDI, its chart, prepared stream, screenshots and audio are **not distributed**. Hardware feedback on v0.7.0 identified the missing speaker indicator. This patch adds it; the new indicator has emulator qualification and its fresh physical test remains pending. See [qualification and measured costs](docs/QUALIFICATION.md).
 
+## Video
+
+**[Blondie's "Call Me" five-channel oscilloscope](https://youtu.be/gpdcfCYBdpk)** â€” an offline
+visualization of the Tandy PSG and PC-speaker arrangement.
+
 ## Play
 
 Use the DOS runtime package from [Releases](https://github.com/astrobleem/radio-shack-rave/releases/tag/v0.7.1-five-indicators), or the `runtime/` directory in the source tree. Run `PLAY` for **Circuit After Hours**, the original bundled composition. Run `DEMO` for the new original prepared-sound example.
